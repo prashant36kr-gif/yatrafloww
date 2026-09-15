@@ -1,33 +1,231 @@
-import { useAuth } from "@/_core/hooks/useAuth";
-import { Button } from "@/components/ui/button";
-import { Loader2 } from "lucide-react";
-import { Streamdown } from 'streamdown';
+import { useMemo, useState } from "react";
+import { trpc } from "@/lib/trpc";
+import { toast } from "sonner";
+import {
+  ArrowDownRight,
+  ArrowRight,
+  BadgeCheck,
+  BedDouble,
+  BusFront,
+  CalendarDays,
+  Check,
+  ChevronDown,
+  CircleHelp,
+  Compass,
+  ExternalLink,
+  IndianRupee,
+  Leaf,
+  MapPin,
+  Menu,
+  Mountain,
+  Navigation,
+  Play,
+  Route,
+  Search,
+  ShieldCheck,
+  Sparkles,
+  TrainFront,
+  Users,
+  Utensils,
+  X,
+} from "lucide-react";
 
-/**
- * All content in this page are only for example, replace with your own feature implementation
- * When building pages, remember your instructions in Frontend Workflow, Frontend Best Practices, Design Guide and Common Pitfalls
- */
+const heroImage = "/manus-storage/india-offbeat_898211a1.jpg";
+const interests = ["Nature", "Heritage", "Adventure", "Spiritual", "Food", "Culture", "Offbeat", "Relaxation"];
+const features = [
+  { icon: IndianRupee, eyebrow: "01 / BUDGET FIRST", title: "Your budget leads.", body: "Discover where your money can actually take you before you fall in love with a destination." },
+  { icon: Route, eyebrow: "02 / COMPLETE TRIP COST", title: "The whole picture.", body: "Transport, stay, food, activities and local travel — all in one honest view." },
+  { icon: Users, eyebrow: "03 / GROUP AWARE", title: "Better together.", body: "See what changes when two friends become four, without losing the per-person clarity." },
+  { icon: BusFront, eyebrow: "04 / MULTIMODAL", title: "Move your way.", body: "Compare train, bus, shared rides and local options without forcing one answer." },
+  { icon: Sparkles, eyebrow: "05 / OPTIMIZE", title: "Make it work.", body: "If a trip misses the mark, YatraFlow surfaces realistic trade-offs instead of dead ends." },
+  { icon: CircleHelp, eyebrow: "06 / EXPLAINABLE", title: "Know why it fits.", body: "Every recommendation comes with the numbers, assumptions and a useful buffer." },
+];
+
+const defaultForm = {
+  budgetPerPerson: "2000",
+  origin: "Patna",
+  duration: "2",
+  travelers: "4",
+  interest: "Nature",
+  transport: "any" as "any" | "train" | "bus" | "cab" | "public",
+};
+
+type FormState = typeof defaultForm;
+
+type TripResult = {
+  id: string;
+  name: string;
+  state: string;
+  eyebrow: string;
+  image: string;
+  accent: string;
+  baseCost: number;
+  distance: string;
+  travelTime: string;
+  tags: string[];
+  transport: string;
+  stay: string;
+  stayName: string;
+  stayStatus: string;
+  highlight: string;
+  why: string;
+  route: string[];
+  activities: string[];
+  origin: string;
+  duration: number;
+  travelers: number;
+  interest: string;
+  transportPreference: string;
+  total: number;
+  buffer: number;
+  fitScore: number;
+  travelersTotal: number;
+  groupBudget: number;
+  breakdown: { transport: number; stay: number; food: number; activities: number; local: number };
+};
+
+function formatMoney(value: number) {
+  return new Intl.NumberFormat("en-IN", { maximumFractionDigits: 0 }).format(value);
+}
+
 export default function Home() {
-  // The useAuth hook provides authentication state.
-  // To implement login/logout, call logout(), or start login from an event
-  // handler: onClick={() => startLogin()} (imported from "@/const"). Never call
-  // startLogin() during render (no href={startLogin()}) — it mints a one-time
-  // nonce cookie and must run only at the moment of navigation.
-  let { user, loading, error, isAuthenticated, logout } = useAuth();
+  const [form, setForm] = useState<FormState>(defaultForm);
+  const [mobileNav, setMobileNav] = useState(false);
+  const [authOpen, setAuthOpen] = useState(false);
+  const [authMode, setAuthMode] = useState<"login" | "signup">("login");
+  const [partnerOpen, setPartnerOpen] = useState(false);
+  const [selectedTrip, setSelectedTrip] = useState<TripResult | null>(null);
+  const [showResults, setShowResults] = useState(false);
+  const [bufferEnabled, setBufferEnabled] = useState(true);
+  const discover = trpc.trip.discover.useMutation();
+  const partnerLead = trpc.partner.requestInfo.useMutation();
+  const featured = trpc.trip.featured.useQuery();
 
-  // If theme is switchable in App.tsx, we can implement theme toggling like this:
-  // const { theme, toggleTheme } = useTheme();
+  const totalBudget = useMemo(() => Number(form.budgetPerPerson || 0) * Number(form.travelers || 0), [form.budgetPerPerson, form.travelers]);
+  const results = (discover.data?.results ?? []) as TripResult[];
+
+  const runPlanner = (event?: React.FormEvent) => {
+    event?.preventDefault();
+    const budget = Number(form.budgetPerPerson);
+    if (!form.origin.trim() || budget < 300) {
+      toast.error("Add an origin and a budget of at least ₹300 per person.");
+      return;
+    }
+    discover.mutate({
+      budgetPerPerson: budget,
+      origin: form.origin.trim(),
+      duration: Number(form.duration),
+      travelers: Number(form.travelers),
+      interest: form.interest.toLowerCase(),
+      transport: form.transport,
+    }, {
+      onSuccess: (data) => {
+        setShowResults(true);
+        setSelectedTrip(null);
+        window.setTimeout(() => document.getElementById("results")?.scrollIntoView({ behavior: "smooth", block: "start" }), 60);
+        if (data.totalFound === 0) toast.info("Try a little more room in the budget or a shorter duration.");
+      },
+      onError: () => toast.error("We couldn't calculate that route yet. Please try again."),
+    });
+  };
+
+  const openPlanner = () => document.getElementById("planner")?.scrollIntoView({ behavior: "smooth", block: "center" });
+
+  const submitPartner = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const data = new FormData(event.currentTarget);
+    partnerLead.mutate({
+      name: String(data.get("name")),
+      email: String(data.get("email")),
+      partnerType: String(data.get("partnerType")),
+      city: String(data.get("city")),
+    }, {
+      onSuccess: (result) => {
+        setPartnerOpen(false);
+        toast.success(result.message);
+      },
+      onError: () => toast.error("Please check the details and try again."),
+    });
+  };
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen overflow-x-hidden bg-[#f6f3ec] text-[#17352c]">
+      <header className="fixed inset-x-0 top-0 z-40 border-b border-[#dce5dc]/70 bg-[#f6f3ec]/90 backdrop-blur-xl">
+        <div className="mx-auto flex h-[76px] max-w-[1240px] items-center justify-between px-5 sm:px-8">
+          <button type="button" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })} className="group flex items-center gap-3 text-left">
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#17352c] text-[#d6f261] shadow-[0_5px_0_#c6d3bb] transition-transform group-active:translate-y-0.5"><Compass size={19} strokeWidth={2.6} /></span>
+            <span><span className="block font-display text-xl font-bold tracking-[-0.04em]">YatraFlow</span><span className="hidden text-[9px] font-bold uppercase tracking-[0.22em] text-[#789086] sm:block">Travel smarter. Discover more.</span></span>
+          </button>
+          <nav className="hidden items-center gap-8 text-[11px] font-bold uppercase tracking-[0.16em] text-[#5d756b] lg:flex">
+            <a className="transition-colors hover:text-[#17352c]" href="#how">How it works</a>
+            <a className="transition-colors hover:text-[#17352c]" href="#discover">Explore India</a>
+            <a className="transition-colors hover:text-[#17352c]" href="#partners">For partners</a>
+          </nav>
+          <div className="flex items-center gap-2">
+            <button type="button" onClick={() => { setAuthMode("login"); setAuthOpen(true); }} className="hidden rounded-full px-4 py-2.5 text-[11px] font-bold uppercase tracking-[0.14em] text-[#5d756b] transition-colors hover:text-[#17352c] sm:block">Log in</button>
+            <button type="button" onClick={() => { setAuthMode("signup"); setAuthOpen(true); }} className="hidden rounded-full bg-[#17352c] px-5 py-3 text-[11px] font-bold uppercase tracking-[0.14em] text-[#f6f3ec] shadow-[0_4px_0_#9caf8c] transition-all hover:bg-[#285044] active:translate-y-0.5 sm:block">Join YatraFlow</button>
+            <button type="button" aria-label="Open navigation" onClick={() => setMobileNav(!mobileNav)} className="rounded-full p-2 lg:hidden"><Menu size={22} /></button>
+          </div>
+        </div>
+        {mobileNav && <div className="border-t border-[#dce5dc] bg-[#f6f3ec] px-5 py-4 lg:hidden"><div className="flex flex-col gap-4 text-[11px] font-bold uppercase tracking-[0.16em] text-[#5d756b]"><a href="#how" onClick={() => setMobileNav(false)}>How it works</a><a href="#discover" onClick={() => setMobileNav(false)}>Explore India</a><a href="#partners" onClick={() => setMobileNav(false)}>For partners</a><button className="w-fit text-left" onClick={() => { setAuthOpen(true); setMobileNav(false); }}>Log in / join</button></div></div>}
+      </header>
+
       <main>
-        {/* Example: lucide-react for icons */}
-        <Loader2 className="animate-spin" />
-        Example Page
-        {/* Example: Streamdown for markdown rendering */}
-        <Streamdown>Any **markdown** content</Streamdown>
-        <Button variant="default">Example Button</Button>
+        <section className="relative isolate overflow-hidden px-5 pb-20 pt-[136px] sm:px-8 lg:pb-28 lg:pt-[154px]">
+          <div className="hero-orb hero-orb-one" /><div className="hero-orb hero-orb-two" />
+          <div className="mx-auto grid max-w-[1240px] items-end gap-12 lg:grid-cols-[1.02fr_.98fr] lg:gap-16">
+            <div className="relative z-10 max-w-[690px]">
+              <div className="mb-8 inline-flex items-center gap-2 rounded-full border border-[#b4c6ad] bg-[#edf3e8] px-3.5 py-2 text-[10px] font-bold uppercase tracking-[0.18em] text-[#3d6350]"><span className="h-1.5 w-1.5 rounded-full bg-[#b6d848] shadow-[0_0_0_4px_#dcecb1]" /> Smart India Hackathon 2026</div>
+              <h1 className="font-display text-[clamp(3.5rem,8vw,7.3rem)] font-semibold leading-[.89] tracking-[-0.075em] text-[#17352c]">What can <em className="not-italic text-[#769d29]">₹X</em> realistically buy as a complete trip?</h1>
+              <p className="mt-8 max-w-[540px] text-[17px] leading-7 text-[#5a7067] sm:text-[19px]">Start with your budget, not a destination. YatraFlow discovers feasible trips across India and builds the complete journey around what you can actually afford.</p>
+              <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:items-center"><button type="button" onClick={openPlanner} className="group inline-flex items-center justify-center gap-3 rounded-full bg-[#17352c] px-6 py-4 text-[12px] font-bold uppercase tracking-[0.15em] text-[#f6f3ec] shadow-[0_5px_0_#9caf8c] transition-all hover:bg-[#285044] active:translate-y-1">Plan by budget <ArrowRight size={16} className="transition-transform group-hover:translate-x-1" /></button><button type="button" onClick={() => document.getElementById("discover")?.scrollIntoView({ behavior: "smooth" })} className="inline-flex items-center justify-center gap-2 rounded-full border border-[#b8c7ba] px-6 py-4 text-[12px] font-bold uppercase tracking-[0.15em] text-[#49655a] transition-colors hover:border-[#17352c] hover:text-[#17352c]">Explore a destination <ArrowDownRight size={15} /></button></div>
+            </div>
+            <div className="relative min-h-[410px] lg:min-h-[505px]">
+              <div className="absolute right-0 top-0 h-[87%] w-[88%] overflow-hidden rounded-[34px] rounded-br-[92px] border-[10px] border-[#f6f3ec] bg-[#cfdfcb] shadow-[0_20px_60px_rgba(45,76,53,.18)] sm:w-[83%]"><img src={heroImage} alt="An offbeat Indian travel landscape" className="h-full w-full object-cover saturate-[.8] contrast-[.95]" /><div className="absolute inset-0 bg-gradient-to-t from-[#17352c]/45 via-transparent to-transparent" /></div>
+              <div className="absolute bottom-0 left-0 z-10 w-[216px] rounded-[22px] border border-[#d3e0cb] bg-[#f6f3ec]/95 p-4 shadow-[0_12px_30px_rgba(34,57,44,.12)] backdrop-blur"><div className="mb-6 flex items-center justify-between"><span className="text-[9px] font-bold uppercase tracking-[0.16em] text-[#789086]">This week</span><span className="rounded-full bg-[#e6f1b8] px-2 py-1 text-[9px] font-bold uppercase tracking-[0.08em] text-[#54721b]">Live demo</span></div><div className="font-display text-3xl font-semibold tracking-[-0.06em]">₹2,000</div><div className="mt-1 text-xs text-[#6d8176]">4 travellers · 2 days</div><div className="mt-4 flex items-center gap-2 border-t border-[#e0e7db] pt-3 text-xs font-semibold text-[#49655a]"><MapPin size={13} className="text-[#7ea22b]" /> 3 feasible escapes</div></div>
+              <div className="absolute right-[-10px] top-[27%] z-10 hidden rounded-2xl border border-white/80 bg-[#d6f261] px-4 py-3 shadow-[0_10px_25px_rgba(35,65,25,.16)] sm:block"><div className="text-[10px] font-bold uppercase tracking-[0.13em] text-[#466113]">Buffer protected</div><div className="mt-1 font-display text-xl font-semibold tracking-[-0.04em] text-[#17352c]">₹480 / person</div></div>
+            </div>
+          </div>
+          <div className="mx-auto mt-16 max-w-[1240px] border-y border-[#d9e2d6] py-5"><div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-4 text-[10px] font-bold uppercase tracking-[0.2em] text-[#779084] sm:text-[11px]"><span className="text-[#17352c]">Budget</span><ArrowRight size={14} /><span>Discover</span><ArrowRight size={14} /><span>Build</span><ArrowRight size={14} /><span>Check</span><ArrowRight size={14} /><span>Optimize</span><ArrowRight size={14} /><span>Explain</span></div></div>
+        </section>
+
+        <section id="planner" className="relative z-20 px-5 pb-24 sm:px-8"><div className="mx-auto max-w-[1160px] rounded-[30px] bg-[#17352c] p-5 text-[#f6f3ec] shadow-[0_24px_70px_rgba(31,65,49,.18)] sm:p-8 lg:p-10"><div className="flex flex-col justify-between gap-5 border-b border-[#476458] pb-7 lg:flex-row lg:items-end"><div><p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#b4d64c]">01 / Start here</p><h2 className="mt-2 font-display text-3xl font-semibold tracking-[-0.05em] sm:text-4xl">Plan around what you have.</h2></div><p className="max-w-[330px] text-sm leading-6 text-[#afc0b4]">Tell us your comfort zone. We’ll do the matching, the maths and the explaining.</p></div><form onSubmit={runPlanner} className="mt-8 grid gap-4 md:grid-cols-2 lg:grid-cols-5"><label className="planner-field lg:col-span-1"><span>Budget / person</span><div className="field-with-icon"><IndianRupee size={15} /><input inputMode="numeric" value={form.budgetPerPerson} onChange={e => setForm({ ...form, budgetPerPerson: e.target.value.replace(/\D/g, "") })} /></div></label><label className="planner-field"><span>Starting city</span><div className="field-with-icon"><MapPin size={15} /><input value={form.origin} onChange={e => setForm({ ...form, origin: e.target.value })} /></div></label><label className="planner-field"><span>Duration</span><div className="select-wrap"><select value={form.duration} onChange={e => setForm({ ...form, duration: e.target.value })}><option value="1">1 day</option><option value="2">2 days</option><option value="3">3 days</option><option value="4">4 days</option><option value="5">5 days</option></select><ChevronDown size={15} /></div></label><label className="planner-field"><span>Travellers</span><div className="select-wrap"><select value={form.travelers} onChange={e => setForm({ ...form, travelers: e.target.value })}><option value="1">1 person</option><option value="2">2 people</option><option value="3">3 people</option><option value="4">4 people</option><option value="5">5 people</option><option value="6">6 people</option></select><ChevronDown size={15} /></div></label><label className="planner-field"><span>Interest</span><div className="select-wrap"><select value={form.interest} onChange={e => setForm({ ...form, interest: e.target.value })}>{interests.map(interest => <option key={interest}>{interest}</option>)}</select><ChevronDown size={15} /></div></label><div className="mt-1 flex flex-col gap-4 md:col-span-2 lg:col-span-5 lg:flex-row lg:items-center lg:justify-between"><div className="flex flex-wrap items-center gap-2"><span className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#92aa9b]">Transport</span>{[["any", "Any"], ["train", "Train"], ["bus", "Bus"], ["cab", "Cab"], ["public", "Shared"]].map(([value, label]) => <button type="button" key={value} onClick={() => setForm({ ...form, transport: value as FormState["transport"] })} className={`rounded-full px-3.5 py-2 text-[11px] font-semibold transition-colors ${form.transport === value ? "bg-[#d6f261] text-[#17352c]" : "bg-[#284b40] text-[#c2d1c4] hover:bg-[#386153]"}`}>{label}</button>)}</div><button disabled={discover.isPending} type="submit" className="group inline-flex items-center justify-center gap-3 rounded-full bg-[#d6f261] px-6 py-3.5 text-[11px] font-bold uppercase tracking-[0.15em] text-[#17352c] transition-all hover:bg-[#e3fb8b] active:translate-y-0.5 disabled:cursor-wait disabled:opacity-70">{discover.isPending ? "Finding trips..." : "Find feasible trips"}<ArrowRight size={15} className="transition-transform group-hover:translate-x-1" /></button></div></form><div className="mt-8 flex flex-wrap items-center gap-x-7 gap-y-3 border-t border-[#476458] pt-5 text-sm text-[#b9c7bd]"><span><strong className="font-display text-2xl text-[#f6f3ec]">₹{formatMoney(Number(form.budgetPerPerson || 0))}</strong> / person</span><span><strong className="font-display text-2xl text-[#f6f3ec]">{form.travelers}</strong> travellers</span><span className="text-[#7f9f91]">→</span><span><strong className="font-display text-2xl text-[#d6f261]">₹{formatMoney(totalBudget)}</strong> total group budget</span></div></div></section>
+
+        {showResults && <section id="results" className="scroll-mt-24 bg-[#eaf0e6] px-5 py-24 sm:px-8"><div className="mx-auto max-w-[1160px]"><div className="flex flex-col justify-between gap-6 md:flex-row md:items-end"><div><p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#759128]">02 / Feasible trips</p><h2 className="mt-2 font-display text-4xl font-semibold tracking-[-0.06em] sm:text-5xl">{discover.data?.message ?? "Your trips"}</h2><p className="mt-3 text-sm text-[#64786b]">Based on ₹{formatMoney(Number(form.budgetPerPerson))} per person · {form.travelers} travellers · {form.duration} days from {form.origin}</p></div><button type="button" onClick={() => document.getElementById("planner")?.scrollIntoView({ behavior: "smooth" })} className="inline-flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.15em] text-[#53701c]">Adjust plan <ArrowRight size={15} /></button></div>{results.length > 0 ? <div className="mt-10 grid gap-5 lg:grid-cols-3">{results.map(trip => <TripCard key={trip.id} trip={trip} onSelect={() => setSelectedTrip(trip)} />)}</div> : <div className="mt-10 rounded-[26px] border border-dashed border-[#b7c9b3] bg-[#f6f3ec] p-10 text-center"><Sparkles className="mx-auto text-[#91ad33]" /><h3 className="mt-4 font-display text-2xl font-semibold">Your budget is close.</h3><p className="mx-auto mt-2 max-w-md text-sm leading-6 text-[#687d71]">Try 3 days instead of 4, or give the planner another ₹300 per person. Good trips are often one small trade-off away.</p></div>}</div></section>}
+
+        {selectedTrip && <TripDetail trip={selectedTrip} budget={Number(form.budgetPerPerson)} onClose={() => setSelectedTrip(null)} />}
+
+        <section id="how" className="px-5 py-24 sm:px-8 lg:py-32"><div className="mx-auto max-w-[1160px]"><div className="grid gap-10 lg:grid-cols-[.7fr_1.3fr]"><div><p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#759128]">A different way to plan</p><h2 className="mt-3 max-w-[390px] font-display text-5xl font-semibold leading-[.95] tracking-[-0.07em] sm:text-6xl">Less wishing. More going.</h2><p className="mt-6 max-w-[340px] text-[15px] leading-7 text-[#64786b]">The best travel plan isn’t the one with the most places. It’s the one that still feels good when you’re on your way home.</p></div><div className="grid gap-x-8 gap-y-12 sm:grid-cols-2">{features.map(feature => <div key={feature.eyebrow} className="feature-item"><div className="flex items-center gap-3 text-[#769d29]"><feature.icon size={18} /><span className="text-[10px] font-bold tracking-[0.16em]">{feature.eyebrow}</span></div><h3 className="mt-4 font-display text-2xl font-semibold tracking-[-0.05em]">{feature.title}</h3><p className="mt-2 max-w-[250px] text-sm leading-6 text-[#6b7f74]">{feature.body}</p></div>)}</div></div></div></section>
+
+        <section id="discover" className="border-y border-[#dce5dc] bg-[#17352c] px-5 py-24 text-[#f6f3ec] sm:px-8 lg:py-28"><div className="mx-auto max-w-[1160px]"><div className="flex flex-col justify-between gap-5 md:flex-row md:items-end"><div><p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#b4d64c]">03 / Explore India</p><h2 className="mt-3 font-display text-5xl font-semibold tracking-[-0.07em] sm:text-6xl">The places you<br /><em className="not-italic text-[#d6f261]">almost missed.</em></h2></div><p className="max-w-[300px] text-sm leading-6 text-[#afc0b4]">Not every great trip needs a flight. Start close, go deeper and leave a little room for surprise.</p></div><div className="mt-12 grid gap-5 lg:grid-cols-3">{(featured.data ?? []).map((trip, index) => <button type="button" key={trip.id} onClick={() => { setForm({ ...form, budgetPerPerson: String(Math.max(2000, trip.baseCost + 380)) }); openPlanner(); }} className="group text-left"><div className="relative h-[330px] overflow-hidden rounded-[24px] bg-[#385a4b]"><img src={trip.image} alt={trip.name} className="h-full w-full object-cover opacity-75 transition duration-500 group-hover:scale-105 group-hover:opacity-90" /><div className="absolute inset-0 bg-gradient-to-t from-[#102920] via-[#17352c]/10 to-transparent" /><span className="absolute left-5 top-5 rounded-full bg-[#f6f3ec]/90 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.15em] text-[#17352c]">0{index + 1} / {trip.highlight}</span><div className="absolute bottom-5 left-5 right-5"><div className="flex items-end justify-between gap-4"><div><p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#c4d3c3]">{trip.state}</p><h3 className="mt-1 font-display text-3xl font-semibold tracking-[-0.06em]">{trip.name}</h3></div><span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#d6f261] text-[#17352c] transition-transform group-hover:rotate-[-45deg]"><ArrowRight size={17} /></span></div></div></div><div className="mt-4 flex items-center justify-between text-xs text-[#a9bdb0]"><span>{trip.eyebrow}</span><span className="font-semibold text-[#d6f261]">from ₹{formatMoney(trip.baseCost)} / person</span></div></button>)}</div></div></section>
+
+        <section id="partners" className="px-5 py-24 sm:px-8 lg:py-32"><div className="mx-auto grid max-w-[1160px] items-center gap-12 rounded-[32px] bg-[#dce8d3] p-7 sm:p-12 lg:grid-cols-[1.15fr_.85fr] lg:p-16"><div><p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#66811f]">For local partners</p><h2 className="mt-4 max-w-[580px] font-display text-5xl font-semibold leading-[.95] tracking-[-0.07em] sm:text-6xl">Be part of the<br /><span className="text-[#658b25]">journey economy.</span></h2><p className="mt-6 max-w-[480px] text-[15px] leading-7 text-[#577064]">Hotels, homestays, food businesses and experience makers — get discovered by travellers who are already looking for a trip like yours.</p><button type="button" onClick={() => setPartnerOpen(true)} className="mt-8 inline-flex items-center gap-3 rounded-full bg-[#17352c] px-6 py-4 text-[11px] font-bold uppercase tracking-[0.15em] text-[#f6f3ec] shadow-[0_5px_0_#9caf8c] transition-all hover:bg-[#285044] active:translate-y-0.5">Become a YatraFlow partner <ArrowRight size={15} /></button></div><div className="relative rounded-[28px] bg-[#17352c] p-7 text-[#f6f3ec] lg:rotate-2"><div className="flex items-start justify-between"><div className="rounded-xl bg-[#d6f261] p-3 text-[#17352c]"><BadgeCheck size={21} /></div><span className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#9bb3a5]">Partner promise</span></div><p className="mt-10 font-display text-3xl font-semibold leading-tight tracking-[-0.06em]">“Make the local part of travel visible.”</p><div className="mt-9 space-y-3 border-t border-[#476458] pt-5 text-sm text-[#b9c7bd]"><div className="flex items-center gap-3"><Check size={15} className="text-[#d6f261]" /> Visible verification status</div><div className="flex items-center gap-3"><Check size={15} className="text-[#d6f261]" /> Honest pricing and availability</div><div className="flex items-center gap-3"><Check size={15} className="text-[#d6f261]" /> Reach budget-conscious travellers</div></div></div></div></section>
+
+        <section className="px-5 pb-20 sm:px-8"><div className="mx-auto max-w-[1160px] rounded-[28px] border border-[#d7e0d6] bg-[#edf2ea] p-7 sm:p-10"><div className="flex flex-col justify-between gap-7 md:flex-row md:items-center"><div className="flex items-start gap-4"><div className="rounded-full bg-[#d6f261] p-3 text-[#17352c]"><ShieldCheck size={20} /></div><div><h3 className="font-display text-2xl font-semibold tracking-[-0.05em]">Travel with a little more certainty.</h3><p className="mt-1 max-w-[520px] text-sm leading-6 text-[#667b70]">Partner badges show the status of submitted information and documents. Verification supports better decisions — it does not guarantee personal safety.</p></div></div><button type="button" onClick={() => toast.info("Verification standards are coming soon.")} className="inline-flex shrink-0 items-center gap-2 text-[11px] font-bold uppercase tracking-[0.15em] text-[#597020]">Our trust process <ExternalLink size={14} /></button></div></div></section>
       </main>
+
+      <footer className="border-t border-[#dce5dc] bg-[#f6f3ec] px-5 py-10 sm:px-8"><div className="mx-auto flex max-w-[1160px] flex-col justify-between gap-6 sm:flex-row sm:items-end"><div><div className="flex items-center gap-2 font-display text-xl font-bold tracking-[-0.04em]"><span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#17352c] text-[#d6f261]"><Compass size={15} /></span> YatraFlow</div><p className="mt-2 text-xs text-[#788d82]">Travel smarter. Discover more.</p></div><div className="text-left text-[10px] font-bold uppercase tracking-[0.15em] text-[#8a9b91] sm:text-right"><div>Built for thoughtful travellers</div><div className="mt-2">© 2026 YatraFlow · Smart India Hackathon</div></div></div></footer>
+
+      {authOpen && <AuthModal mode={authMode} onModeChange={setAuthMode} onClose={() => setAuthOpen(false)} />}
+      {partnerOpen && <PartnerModal onSubmit={submitPartner} onClose={() => setPartnerOpen(false)} loading={partnerLead.isPending} />}
     </div>
   );
+}
+
+function TripCard({ trip, onSelect }: { trip: TripResult; onSelect: () => void }) {
+  return <article className="group overflow-hidden rounded-[26px] border border-[#d5e1d2] bg-[#f6f3ec] shadow-[0_10px_30px_rgba(65,92,68,.06)] transition-transform hover:-translate-y-1"><div className="relative h-48 overflow-hidden"><img src={trip.image} alt={trip.name} className="h-full w-full object-cover opacity-85 transition duration-500 group-hover:scale-105" /><div className="absolute inset-0 bg-gradient-to-t from-[#17352c]/70 to-transparent" /><span className="absolute left-4 top-4 rounded-full bg-[#d6f261] px-2.5 py-1.5 text-[9px] font-bold uppercase tracking-[0.14em] text-[#17352c]">{trip.highlight}</span><div className="absolute bottom-4 left-4 text-[#f6f3ec]"><div className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#d3e1ce]">{trip.state}</div><div className="mt-1 font-display text-3xl font-semibold tracking-[-0.06em]">{trip.name}</div></div></div><div className="p-5"><div className="flex items-end justify-between gap-4"><div><div className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#779084]">Complete estimate</div><div className="mt-1 font-display text-3xl font-semibold tracking-[-0.06em] text-[#17352c]">₹{formatMoney(trip.total)}<span className="font-sans text-xs font-medium tracking-normal text-[#789086]"> / person</span></div></div><div className="rounded-xl bg-[#e5f0d1] px-2.5 py-2 text-right"><div className="font-display text-lg font-semibold text-[#52731e]">{trip.fitScore}%</div><div className="text-[8px] font-bold uppercase tracking-[0.1em] text-[#789652]">fit score</div></div></div><div className="mt-4 grid grid-cols-2 gap-2 border-y border-[#e0e7dc] py-3 text-xs text-[#62776b]"><span className="flex items-center gap-2"><TrainFront size={13} /> {trip.transport}</span><span className="flex items-center gap-2"><BedDouble size={13} /> {trip.stay}</span></div><div className="mt-3 flex flex-wrap gap-1.5">{trip.tags.map(tag => <span key={tag} className="rounded-full border border-[#d6e2d2] px-2 py-1 text-[9px] font-bold uppercase tracking-[0.1em] text-[#698174]">{tag}</span>)}</div><div className="mt-5 flex items-center justify-between"><span className="text-xs font-medium text-[#698174]">₹{formatMoney(trip.buffer)} buffer / person</span><button type="button" onClick={onSelect} className="inline-flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.13em] text-[#55731f]">View trip <ArrowRight size={14} /></button></div></div></article>;
+}
+
+function TripDetail({ trip, budget, onClose }: { trip: TripResult; budget: number; onClose: () => void }) {
+  return <div className="fixed inset-0 z-50 overflow-y-auto bg-[#17352c]/60 p-3 backdrop-blur-sm sm:p-8"><div className="mx-auto max-w-[1040px] overflow-hidden rounded-[30px] bg-[#f6f3ec] shadow-2xl"><div className="relative h-[260px] sm:h-[330px]"><img src={trip.image} alt={trip.name} className="h-full w-full object-cover" /><div className="absolute inset-0 bg-gradient-to-t from-[#17352c] via-[#17352c]/20 to-transparent" /><button type="button" onClick={onClose} aria-label="Close trip details" className="absolute right-5 top-5 flex h-10 w-10 items-center justify-center rounded-full bg-[#f6f3ec]/90 text-[#17352c]"><X size={18} /></button><div className="absolute bottom-6 left-6 text-[#f6f3ec] sm:bottom-8 sm:left-9"><div className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#cfe1c8]">{trip.duration}-day complete trip · {trip.state}</div><h2 className="mt-2 font-display text-5xl font-semibold tracking-[-0.08em] sm:text-7xl">{trip.name}</h2><div className="mt-2 text-sm text-[#cfe1c8]">{trip.distance} · {trip.travelTime} from {trip.origin}</div></div></div><div className="grid gap-8 p-6 sm:p-9 lg:grid-cols-[1.25fr_.75fr]"><div><div className="flex flex-wrap items-center gap-2"><span className="inline-flex items-center gap-2 rounded-full bg-[#d8edaf] px-3 py-2 text-[10px] font-bold uppercase tracking-[0.14em] text-[#4f711e]"><Check size={13} /> Fits your budget</span><span className="rounded-full border border-[#d4dfd1] px-3 py-2 text-[10px] font-bold uppercase tracking-[0.14em] text-[#6e8378]">Estimated demo data</span></div><p className="mt-6 max-w-[620px] text-[17px] leading-8 text-[#5f7468]">{trip.why}</p><div className="mt-8 grid gap-4 sm:grid-cols-2"><div className="rounded-2xl bg-[#e9f0e4] p-5"><div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.16em] text-[#779084]"><Route size={14} /> Route</div><div className="mt-4 flex flex-wrap items-center gap-2 text-sm font-semibold">{trip.route.map((stop, index) => <span key={`${stop}-${index}`} className="flex items-center gap-2">{stop}{index < trip.route.length - 1 && <ArrowRight size={13} className="text-[#8fa38f]" />}</span>)}</div></div><div className="rounded-2xl bg-[#e9f0e4] p-5"><div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.16em] text-[#779084]"><Mountain size={14} /> On the plan</div><div className="mt-4 space-y-2 text-sm text-[#4f685b]">{trip.activities.map(activity => <div key={activity} className="flex items-center gap-2"><span className="h-1.5 w-1.5 rounded-full bg-[#94b52e]" /> {activity}</div>)}</div></div></div><div className="mt-8"><div className="flex items-center justify-between"><h3 className="font-display text-2xl font-semibold tracking-[-0.05em]">Suggested rhythm</h3><span className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#7a9083]">Slow travel</span></div><div className="mt-4 space-y-3">{[["Day 01", `Arrive in ${trip.name}, settle into your ${trip.stay.toLowerCase()} and take the first local walk.`], ["Day 02", `Early start for ${trip.activities[0]}, a local lunch, then ${trip.activities[1]} before sunset.`], ...(trip.duration > 2 ? [[`Day 0${trip.duration}`, "A flexible buffer for an extra neighbourhood, market or a slower breakfast."]] : [])].map(([day, text]) => <div key={day} className="flex gap-4 rounded-xl border border-[#dce5dc] p-4"><div className="min-w-[58px] text-[10px] font-bold uppercase tracking-[0.12em] text-[#719028]">{day}</div><p className="text-sm leading-6 text-[#62776b]">{text}</p></div>)}</div></div></div><aside><div className="rounded-[24px] bg-[#17352c] p-6 text-[#f6f3ec] sm:p-7"><div className="text-[10px] font-bold uppercase tracking-[0.17em] text-[#a9c0af]">Cost at a glance</div><div className="mt-4 font-display text-5xl font-semibold tracking-[-0.08em]">₹{formatMoney(trip.total)}<span className="font-sans text-sm font-medium tracking-normal text-[#a9c0af]"> / person</span></div><div className="mt-2 text-sm text-[#a9c0af]">₹{formatMoney(trip.travelersTotal)} for {trip.travelers} travellers</div><div className="mt-6 space-y-3 border-t border-[#476458] pt-5 text-sm"><CostRow label="Transport" value={trip.breakdown.transport} /><CostRow label="Stay" value={trip.breakdown.stay} /><CostRow label="Food" value={trip.breakdown.food} /><CostRow label="Activities" value={trip.breakdown.activities} /><CostRow label="Local travel" value={trip.breakdown.local} /><div className="mt-4 flex items-center justify-between border-t border-[#476458] pt-4 font-semibold"><span>Protected buffer</span><span className="text-[#d6f261]">₹{formatMoney(Math.max(0, budget - trip.total))}</span></div></div></div><div className="mt-4 rounded-2xl border border-[#d4dfd1] bg-[#edf2ea] p-5"><div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.15em] text-[#66811f]"><BadgeCheck size={15} /> Stay partner status</div><div className="mt-3 font-display text-xl font-semibold tracking-[-0.05em]">{trip.stayName}</div><div className="mt-2 flex items-center gap-2 text-xs text-[#64786b]"><span className={`h-2 w-2 rounded-full ${trip.stayStatus === "Verified partner" ? "bg-[#75a72c]" : "bg-[#d5a52e]"}`} /> {trip.stayStatus}</div><div className="mt-4 text-xs leading-5 text-[#718579]">Public verification status only. Sensitive documents are never shown to travellers.</div></div><button type="button" onClick={() => toast.success("Trip saved locally for this demo. Sign in to sync it across devices.")} className="mt-4 flex w-full items-center justify-center gap-2 rounded-full border border-[#9fb49f] py-3.5 text-[11px] font-bold uppercase tracking-[0.14em] text-[#49665a] transition-colors hover:border-[#17352c] hover:text-[#17352c]">Save this trip <Sparkles size={14} /></button></aside></div></div></div>;
+}
+
+function CostRow({ label, value }: { label: string; value: number }) { return <div className="flex items-center justify-between text-[#b8c7bc]"><span>{label}</span><span>₹{formatMoney(value)}</span></div>; }
+
+function AuthModal({ mode, onModeChange, onClose }: { mode: "login" | "signup"; onModeChange: (mode: "login" | "signup") => void; onClose: () => void }) {
+  return <div className="fixed inset-0 z-[60] flex items-center justify-center bg-[#17352c]/60 p-4 backdrop-blur-sm"><div className="relative w-full max-w-[460px] rounded-[28px] bg-[#f6f3ec] p-7 shadow-2xl sm:p-9"><button type="button" onClick={onClose} className="absolute right-5 top-5 rounded-full p-2 text-[#718579] hover:bg-[#e8efe4]"><X size={18} /></button><div className="mb-6 flex gap-1 rounded-full bg-[#e5ece1] p-1"><button className={`flex-1 rounded-full py-2.5 text-[10px] font-bold uppercase tracking-[0.15em] ${mode === "login" ? "bg-[#17352c] text-[#f6f3ec]" : "text-[#6c8176]"}`} onClick={() => onModeChange("login")}>Log in</button><button className={`flex-1 rounded-full py-2.5 text-[10px] font-bold uppercase tracking-[0.15em] ${mode === "signup" ? "bg-[#17352c] text-[#f6f3ec]" : "text-[#6c8176]"}`} onClick={() => onModeChange("signup")}>Create account</button></div><p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#789652]">{mode === "login" ? "Welcome back" : "Start with the essentials"}</p><h2 className="mt-2 font-display text-4xl font-semibold tracking-[-0.07em]">{mode === "login" ? "Pick up where you left off." : "Make your next trip feel possible."}</h2><div className="mt-7 space-y-3">{mode === "signup" && <input className="modal-input" placeholder="Your name" /> }<input className="modal-input" placeholder="Email or mobile" /><input className="modal-input" type="password" placeholder="Password" /></div><button type="button" onClick={() => { onClose(); toast.success(mode === "login" ? "Demo login ready — connect Manus OAuth to continue." : "Your YatraFlow profile is ready in this demo."); }} className="mt-5 w-full rounded-full bg-[#17352c] py-4 text-[11px] font-bold uppercase tracking-[0.15em] text-[#f6f3ec]">{mode === "login" ? "Log in" : "Create traveler account"}</button><button type="button" onClick={() => toast.info("Google sign-in is ready to connect through Manus OAuth.")} className="mt-3 w-full rounded-full border border-[#c5d4c2] py-4 text-[11px] font-bold uppercase tracking-[0.15em] text-[#4f6c5f]">Continue with Google</button><p className="mt-5 text-center text-xs leading-5 text-[#7b8f84]">We only ask for the details needed to plan, save and improve your trips.</p></div></div>;
+}
+
+function PartnerModal({ onSubmit, onClose, loading }: { onSubmit: (event: React.FormEvent<HTMLFormElement>) => void; onClose: () => void; loading: boolean }) {
+  return <div className="fixed inset-0 z-[60] flex items-center justify-center bg-[#17352c]/60 p-4 backdrop-blur-sm"><div className="relative w-full max-w-[520px] rounded-[28px] bg-[#f6f3ec] p-7 shadow-2xl sm:p-9"><button type="button" onClick={onClose} className="absolute right-5 top-5 rounded-full p-2 text-[#718579] hover:bg-[#e8efe4]"><X size={18} /></button><p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#789652]">For local partners</p><h2 className="mt-2 font-display text-4xl font-semibold tracking-[-0.07em]">Let’s make the local part visible.</h2><p className="mt-3 text-sm leading-6 text-[#687d71]">Tell us a little about your business. Our team will share the verification flow and partner details.</p><form onSubmit={onSubmit} className="mt-7 space-y-3"><input name="name" required className="modal-input" placeholder="Contact person" /><input name="email" type="email" required className="modal-input" placeholder="Email" /><div className="grid gap-3 sm:grid-cols-2"><input name="city" required className="modal-input" placeholder="City" /><select name="partnerType" defaultValue="homestay" className="modal-input"><option value="homestay">Hotel / homestay</option><option value="food">Food business</option><option value="experience">Experience / guide</option></select></div><button disabled={loading} className="mt-3 w-full rounded-full bg-[#17352c] py-4 text-[11px] font-bold uppercase tracking-[0.15em] text-[#f6f3ec] disabled:opacity-60">{loading ? "Sending..." : "Request partner info"}</button></form></div></div>;
 }
