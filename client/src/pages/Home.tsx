@@ -1,17 +1,20 @@
 import { useMemo, useState } from "react";
 import { trpc } from "@/lib/trpc";
+import { AIChatBox, type Message } from "@/components/AIChatBox";
 import { toast } from "sonner";
 import {
   ArrowDownRight,
   ArrowRight,
   BadgeCheck,
   BedDouble,
+  BriefcaseBusiness,
   BusFront,
   CalendarDays,
   Check,
   ChevronDown,
   CircleHelp,
   Clock3,
+  CloudSun,
   Compass,
   Database,
   ExternalLink,
@@ -19,6 +22,8 @@ import {
   Leaf,
   MapPin,
   Menu,
+  MessageCircle,
+  MoreHorizontal,
   Mountain,
   Navigation,
   Play,
@@ -43,6 +48,15 @@ const features = [
   { icon: BusFront, eyebrow: "04 / MULTIMODAL", title: "Move your way.", body: "Compare train, bus, shared rides and local options without forcing one answer." },
   { icon: Sparkles, eyebrow: "05 / OPTIMIZE", title: "Make it work.", body: "If a trip misses the mark, YatraFlow surfaces realistic trade-offs instead of dead ends." },
   { icon: CircleHelp, eyebrow: "06 / EXPLAINABLE", title: "Know why it fits.", body: "Every recommendation comes with the numbers, assumptions and a useful buffer." },
+];
+
+const serviceCards = [
+  { id: "places", icon: MapPin, kicker: "DISCOVER", title: "Tourist places", body: "Browse destinations by budget, vibe, and how easy they are to reach.", action: "Explore places" },
+  { id: "map", icon: Navigation, kicker: "ORIENT", title: "Map & route", body: "See the shape of your trip before you commit to a route or a stay.", action: "Open map preview" },
+  { id: "stays", icon: BedDouble, kicker: "STAY + EAT", title: "Hotels & restaurants", body: "Find budget stays, local food, and visible verification status in one place.", action: "Find local options" },
+  { id: "train", icon: TrainFront, kicker: "GET THERE", title: "Travel by train", body: "Compare rail-first ideas with bus, shared, and local options.", action: "Compare travel" },
+  { id: "business", icon: BriefcaseBusiness, kicker: "LOCAL ECONOMY", title: "Tourism businesses", body: "Connect with guides, homestays, food makers, and experience partners.", action: "Meet partners" },
+  { id: "weather", icon: CloudSun, kicker: "PLAN BETTER", title: "Weather forecast", body: "Use a simple weather signal to time outdoor plans more thoughtfully.", action: "Check the forecast" },
 ];
 
 const defaultForm = {
@@ -105,6 +119,8 @@ export default function Home() {
   const [partnerOpen, setPartnerOpen] = useState(false);
   const [selectedTrip, setSelectedTrip] = useState<TripResult | null>(null);
   const [showResults, setShowResults] = useState(false);
+  const [chatOpen, setChatOpen] = useState(false);
+  const [chatMessages, setChatMessages] = useState<Message[]>([]);
   const [bufferEnabled, setBufferEnabled] = useState(true);
   const discover = trpc.trip.discover.useMutation();
   const optimize = trpc.trip.optimize.useMutation();
@@ -141,6 +157,31 @@ export default function Home() {
 
   const openPlanner = () => document.getElementById("planner")?.scrollIntoView({ behavior: "smooth", block: "center" });
 
+  const handleChat = (content: string) => {
+    const reply = content.toLowerCase().includes("crowd")
+      ? "Try Rajgir early in the morning — the engine can keep the route and budget fixed while swapping timing and activities."
+      : content.toLowerCase().includes("weather")
+        ? "Weather signals are part of the next data layer. For the demo, I can help you choose a slower, indoor-friendly plan."
+        : "Start with a budget, city, duration and interest. I’ll help you refine the plan without inventing prices or breaking hard constraints.";
+    setChatMessages(previous => [...previous, { role: "user", content }, { role: "assistant", content: reply }]);
+  };
+
+  const handleService = (service: (typeof serviceCards)[number]) => {
+    if (service.id === "places") {
+      document.getElementById("discover")?.scrollIntoView({ behavior: "smooth" });
+      return;
+    }
+    if (service.id === "business") {
+      document.getElementById("partners")?.scrollIntoView({ behavior: "smooth" });
+      return;
+    }
+    if (service.id === "weather") {
+      toast.info("Weather signals are ready for the next data integration.");
+      return;
+    }
+    toast.success(`${service.title} preview is ready for the pilot dataset.`);
+  };
+
   const submitPartner = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const data = new FormData(event.currentTarget);
@@ -166,10 +207,11 @@ export default function Home() {
             <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#17352c] text-[#d6f261] shadow-[0_5px_0_#c6d3bb] transition-transform group-active:translate-y-0.5"><Compass size={19} strokeWidth={2.6} /></span>
             <span><span className="block font-display text-xl font-bold tracking-[-0.04em]">YatraFlow</span><span className="hidden text-[9px] font-bold uppercase tracking-[0.22em] text-[#789086] sm:block">Travel smarter. Discover more.</span></span>
           </button>
-          <nav className="hidden items-center gap-8 text-[11px] font-bold uppercase tracking-[0.16em] text-[#5d756b] lg:flex">
-            <a className="transition-colors hover:text-[#17352c]" href="#how">How it works</a>
-            <a className="transition-colors hover:text-[#17352c]" href="#discover">Explore India</a>
-            <a className="transition-colors hover:text-[#17352c]" href="#partners">For partners</a>
+          <nav className="hidden items-center gap-7 text-[11px] font-bold uppercase tracking-[0.16em] text-[#5d756b] lg:flex">
+            <a className="transition-colors hover:text-[#17352c]" href="#home">Home</a>
+            <a className="transition-colors hover:text-[#17352c]" href="#about">About</a>
+            <a className="transition-colors hover:text-[#17352c]" href="#contact">Contact us</a>
+            <a className="transition-colors hover:text-[#17352c]" href="#services">Services</a>
           </nav>
           <div className="flex items-center gap-2">
             <button type="button" onClick={() => { setAuthMode("login"); setAuthOpen(true); }} className="hidden rounded-full px-4 py-2.5 text-[11px] font-bold uppercase tracking-[0.14em] text-[#5d756b] transition-colors hover:text-[#17352c] sm:block">Log in</button>
@@ -177,11 +219,11 @@ export default function Home() {
             <button type="button" aria-label="Open navigation" onClick={() => setMobileNav(!mobileNav)} className="rounded-full p-2 lg:hidden"><Menu size={22} /></button>
           </div>
         </div>
-        {mobileNav && <div className="border-t border-[#dce5dc] bg-[#f6f3ec] px-5 py-4 lg:hidden"><div className="flex flex-col gap-4 text-[11px] font-bold uppercase tracking-[0.16em] text-[#5d756b]"><a href="#how" onClick={() => setMobileNav(false)}>How it works</a><a href="#discover" onClick={() => setMobileNav(false)}>Explore India</a><a href="#partners" onClick={() => setMobileNav(false)}>For partners</a><button className="w-fit text-left" onClick={() => { setAuthOpen(true); setMobileNav(false); }}>Log in / join</button></div></div>}
+        {mobileNav && <div className="border-t border-[#dce5dc] bg-[#f6f3ec] px-5 py-4 lg:hidden"><div className="flex flex-col gap-4 text-[11px] font-bold uppercase tracking-[0.16em] text-[#5d756b]"><a href="#home" onClick={() => setMobileNav(false)}>Home</a><a href="#about" onClick={() => setMobileNav(false)}>About</a><a href="#contact" onClick={() => setMobileNav(false)}>Contact us</a><a href="#services" onClick={() => setMobileNav(false)}>Services</a><button className="w-fit text-left" onClick={() => { setAuthOpen(true); setMobileNav(false); }}>Log in / join</button></div></div>}
       </header>
 
       <main>
-        <section className="relative isolate overflow-hidden px-5 pb-20 pt-[136px] sm:px-8 lg:pb-28 lg:pt-[154px]">
+        <section id="home" className="relative isolate overflow-hidden px-5 pb-20 pt-[136px] sm:px-8 lg:pb-28 lg:pt-[154px]">
           <div className="hero-orb hero-orb-one" /><div className="hero-orb hero-orb-two" />
           <div className="mx-auto grid max-w-[1240px] items-end gap-12 lg:grid-cols-[1.02fr_.98fr] lg:gap-16">
             <div className="relative z-10 max-w-[690px]">
@@ -201,11 +243,13 @@ export default function Home() {
 
         <section id="planner" className="relative z-20 px-5 pb-24 sm:px-8"><div className="mx-auto max-w-[1160px] rounded-[30px] bg-[#17352c] p-5 text-[#f6f3ec] shadow-[0_24px_70px_rgba(31,65,49,.18)] sm:p-8 lg:p-10"><div className="flex flex-col justify-between gap-5 border-b border-[#476458] pb-7 lg:flex-row lg:items-end"><div><p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#b4d64c]">01 / Start here</p><h2 className="mt-2 font-display text-3xl font-semibold tracking-[-0.05em] sm:text-4xl">Plan around what you have.</h2></div><p className="max-w-[330px] text-sm leading-6 text-[#afc0b4]">Tell us your comfort zone. We’ll do the matching, the maths and the explaining.</p></div><form onSubmit={runPlanner} className="mt-8 grid gap-4 md:grid-cols-2 lg:grid-cols-5"><label className="planner-field lg:col-span-1"><span>Budget / person</span><div className="field-with-icon"><IndianRupee size={15} /><input inputMode="numeric" value={form.budgetPerPerson} onChange={e => setForm({ ...form, budgetPerPerson: e.target.value.replace(/\D/g, "") })} /></div></label><label className="planner-field"><span>Starting city</span><div className="field-with-icon"><MapPin size={15} /><input value={form.origin} onChange={e => setForm({ ...form, origin: e.target.value })} /></div></label><label className="planner-field"><span>Duration</span><div className="select-wrap"><select value={form.duration} onChange={e => setForm({ ...form, duration: e.target.value })}><option value="1">1 day</option><option value="2">2 days</option><option value="3">3 days</option><option value="4">4 days</option><option value="5">5 days</option></select><ChevronDown size={15} /></div></label><label className="planner-field"><span>Travellers</span><div className="select-wrap"><select value={form.travelers} onChange={e => setForm({ ...form, travelers: e.target.value })}><option value="1">1 person</option><option value="2">2 people</option><option value="3">3 people</option><option value="4">4 people</option><option value="5">5 people</option><option value="6">6 people</option></select><ChevronDown size={15} /></div></label><label className="planner-field"><span>Interest</span><div className="select-wrap"><select value={form.interest} onChange={e => setForm({ ...form, interest: e.target.value })}>{interests.map(interest => <option key={interest}>{interest}</option>)}</select><ChevronDown size={15} /></div></label><div className="mt-1 flex flex-col gap-4 md:col-span-2 lg:col-span-5 lg:flex-row lg:items-center lg:justify-between"><div className="flex flex-wrap items-center gap-2"><span className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#92aa9b]">Transport</span>{[["any", "Any"], ["train", "Train"], ["bus", "Bus"], ["cab", "Cab"], ["public", "Shared"]].map(([value, label]) => <button type="button" key={value} onClick={() => setForm({ ...form, transport: value as FormState["transport"] })} className={`rounded-full px-3.5 py-2 text-[11px] font-semibold transition-colors ${form.transport === value ? "bg-[#d6f261] text-[#17352c]" : "bg-[#284b40] text-[#c2d1c4] hover:bg-[#386153]"}`}>{label}</button>)}</div><button disabled={discover.isPending} type="submit" className="group inline-flex items-center justify-center gap-3 rounded-full bg-[#d6f261] px-6 py-3.5 text-[11px] font-bold uppercase tracking-[0.15em] text-[#17352c] transition-all hover:bg-[#e3fb8b] active:translate-y-0.5 disabled:cursor-wait disabled:opacity-70">{discover.isPending ? "Finding trips..." : "Find feasible trips"}<ArrowRight size={15} className="transition-transform group-hover:translate-x-1" /></button></div></form><div className="mt-8 flex flex-wrap items-center gap-x-7 gap-y-3 border-t border-[#476458] pt-5 text-sm text-[#b9c7bd]"><span><strong className="font-display text-2xl text-[#f6f3ec]">₹{formatMoney(Number(form.budgetPerPerson || 0))}</strong> / person</span><span><strong className="font-display text-2xl text-[#f6f3ec]">{form.travelers}</strong> travellers</span><span className="text-[#7f9f91]">→</span><span><strong className="font-display text-2xl text-[#d6f261]">₹{formatMoney(totalBudget)}</strong> total group budget</span></div></div></section>
 
-        {showResults && <section id="results" className="scroll-mt-24 bg-[#eaf0e6] px-5 py-24 sm:px-8"><div className="mx-auto max-w-[1160px]"><div className="flex flex-col justify-between gap-6 md:flex-row md:items-end"><div><p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#759128]">02 / Feasible trips</p><h2 className="mt-2 font-display text-4xl font-semibold tracking-[-0.06em] sm:text-5xl">{discover.data?.message ?? "Your trips"}</h2><p className="mt-3 text-sm text-[#64786b]">Based on ₹{formatMoney(Number(form.budgetPerPerson))} per person · {form.travelers} travellers · {form.duration} days from {form.origin}</p></div><button type="button" onClick={() => document.getElementById("planner")?.scrollIntoView({ behavior: "smooth" })} className="inline-flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.15em] text-[#53701c]">Adjust plan <ArrowRight size={15} /></button></div>{results.length > 0 ? <div className="mt-10 grid gap-5 lg:grid-cols-3">{results.map(trip => <TripCard key={trip.id} trip={trip} onSelect={() => setSelectedTrip(trip)} />)}</div> : <div className="mt-10 grid gap-5 rounded-[26px] border border-dashed border-[#b7c9b3] bg-[#f6f3ec] p-7 sm:p-10 lg:grid-cols-[.8fr_1.2fr]"><div><Sparkles className="text-[#91ad33]" /><h3 className="mt-4 font-display text-2xl font-semibold">No feasible complete trip found.</h3><p className="mt-2 max-w-md text-sm leading-6 text-[#687d71]">Instead of inventing an answer, YatraFlow shows the smallest changes that could unlock one.</p></div><div className="grid gap-2 sm:grid-cols-2">{(discover.data?.unlockSuggestions ?? []).map((suggestion, index) => <button type="button" key={suggestion} onClick={() => { if (index === 0) setForm({ ...form, budgetPerPerson: String(discover.data?.nearestBudget ?? Number(form.budgetPerPerson) + 400) }); if (index === 1) setForm({ ...form, transport: "public" }); if (index === 2) setForm({ ...form, duration: String(Number(form.duration) + 1) }); document.getElementById("planner")?.scrollIntoView({ behavior: "smooth", block: "center" }); }} className="rounded-2xl border border-[#d6e2d2] bg-[#edf2ea] p-4 text-left text-sm font-semibold text-[#4d6b5a] transition hover:border-[#91ad33] hover:bg-[#e5efdb]"><span className="mb-3 block text-[10px] font-bold uppercase tracking-[0.14em] text-[#7c9b33]">0{index + 1} / unlock</span>{suggestion}<ArrowRight size={14} className="mt-3 text-[#7a9b2c]" /></button>)}</div></div>}</div></section>}
+        <section id="services" className="scroll-mt-24 border-y border-[#dce5dc] bg-[#edf2ea] px-5 py-20 sm:px-8 lg:py-24"><div className="mx-auto max-w-[1160px]"><div className="flex flex-col justify-between gap-5 md:flex-row md:items-end"><div><p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#759128]">02 / Explore the app</p><h2 className="mt-3 max-w-[600px] font-display text-5xl font-semibold leading-[.95] tracking-[-0.07em] sm:text-6xl">Everything you need<br /><span className="text-[#769d29]">to go further.</span></h2></div><p className="max-w-[320px] text-sm leading-6 text-[#64786b]">A wider tourism layer around the planner: discover places, move around, stay local, and meet the people who make a destination feel alive.</p></div><div className="mt-10 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{serviceCards.map(service => <button type="button" key={service.id} onClick={() => handleService(service)} className="group rounded-[22px] border border-[#d5e1d2] bg-[#f6f3ec] p-5 text-left transition hover:-translate-y-1 hover:border-[#9fb996] hover:shadow-[0_12px_25px_rgba(60,93,64,.08)]"><div className="flex items-start justify-between"><span className="rounded-xl bg-[#dceab6] p-3 text-[#617d21]"><service.icon size={19} /></span><MoreHorizontal size={16} className="text-[#a0b1a5] transition group-hover:text-[#6f9128]" /></div><div className="mt-6 text-[9px] font-bold uppercase tracking-[0.16em] text-[#789087]">{service.kicker}</div><h3 className="mt-2 font-display text-2xl font-semibold tracking-[-0.05em]">{service.title}</h3><p className="mt-2 min-h-[48px] text-sm leading-6 text-[#6b7f74]">{service.body}</p><div className="mt-5 flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.12em] text-[#6e8b27]">{service.action}<ArrowRight size={14} className="transition group-hover:translate-x-1" /></div></button>)}</div></div></section>
+
+        {showResults && <section id="results" className="scroll-mt-24 bg-[#eaf0e6] px-5 py-24 sm:px-8"><div className="mx-auto max-w-[1160px]"><div className="flex flex-col justify-between gap-6 md:flex-row md:items-end"><div><p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#759128]">03 / Feasible trips</p><h2 className="mt-2 font-display text-4xl font-semibold tracking-[-0.06em] sm:text-5xl">{discover.data?.message ?? "Your trips"}</h2><p className="mt-3 text-sm text-[#64786b]">Based on ₹{formatMoney(Number(form.budgetPerPerson))} per person · {form.travelers} travellers · {form.duration} days from {form.origin}</p></div><button type="button" onClick={() => document.getElementById("planner")?.scrollIntoView({ behavior: "smooth" })} className="inline-flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.15em] text-[#53701c]">Adjust plan <ArrowRight size={15} /></button></div>{results.length > 0 ? <div className="mt-10 grid gap-5 lg:grid-cols-3">{results.map(trip => <TripCard key={trip.id} trip={trip} onSelect={() => setSelectedTrip(trip)} />)}</div> : <div className="mt-10 grid gap-5 rounded-[26px] border border-dashed border-[#b7c9b3] bg-[#f6f3ec] p-7 sm:p-10 lg:grid-cols-[.8fr_1.2fr]"><div><Sparkles className="text-[#91ad33]" /><h3 className="mt-4 font-display text-2xl font-semibold">No feasible complete trip found.</h3><p className="mt-2 max-w-md text-sm leading-6 text-[#687d71]">Instead of inventing an answer, YatraFlow shows the smallest changes that could unlock one.</p></div><div className="grid gap-2 sm:grid-cols-2">{(discover.data?.unlockSuggestions ?? []).map((suggestion, index) => <button type="button" key={suggestion} onClick={() => { if (index === 0) setForm({ ...form, budgetPerPerson: String(discover.data?.nearestBudget ?? Number(form.budgetPerPerson) + 400) }); if (index === 1) setForm({ ...form, transport: "public" }); if (index === 2) setForm({ ...form, duration: String(Number(form.duration) + 1) }); document.getElementById("planner")?.scrollIntoView({ behavior: "smooth", block: "center" }); }} className="rounded-2xl border border-[#d6e2d2] bg-[#edf2ea] p-4 text-left text-sm font-semibold text-[#4d6b5a] transition hover:border-[#91ad33] hover:bg-[#e5efdb]"><span className="mb-3 block text-[10px] font-bold uppercase tracking-[0.14em] text-[#7c9b33]">0{index + 1} / unlock</span>{suggestion}<ArrowRight size={14} className="mt-3 text-[#7a9b2c]" /></button>)}</div></div>}</div></section>}
 
         {selectedTrip && <TripDetail trip={selectedTrip} budget={Number(form.budgetPerPerson)} onClose={() => setSelectedTrip(null)} optimize={optimize} />}
 
-        <section id="how" className="px-5 py-24 sm:px-8 lg:py-32"><div className="mx-auto max-w-[1160px]"><div className="grid gap-10 lg:grid-cols-[.7fr_1.3fr]"><div><p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#759128]">A different way to plan</p><h2 className="mt-3 max-w-[390px] font-display text-5xl font-semibold leading-[.95] tracking-[-0.07em] sm:text-6xl">Less wishing. More going.</h2><p className="mt-6 max-w-[340px] text-[15px] leading-7 text-[#64786b]">The best travel plan isn’t the one with the most places. It’s the one that still feels good when you’re on your way home.</p></div><div className="grid gap-x-8 gap-y-12 sm:grid-cols-2">{features.map(feature => <div key={feature.eyebrow} className="feature-item"><div className="flex items-center gap-3 text-[#769d29]"><feature.icon size={18} /><span className="text-[10px] font-bold tracking-[0.16em]">{feature.eyebrow}</span></div><h3 className="mt-4 font-display text-2xl font-semibold tracking-[-0.05em]">{feature.title}</h3><p className="mt-2 max-w-[250px] text-sm leading-6 text-[#6b7f74]">{feature.body}</p></div>)}</div></div></div></section>
+        <section id="about" className="scroll-mt-24 px-5 py-24 sm:px-8 lg:py-32"><div className="mx-auto max-w-[1160px]"><div className="grid gap-10 lg:grid-cols-[.7fr_1.3fr]"><div><p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#759128]">About YatraFlow</p><h2 className="mt-3 max-w-[390px] font-display text-5xl font-semibold leading-[.95] tracking-[-0.07em] sm:text-6xl">Less wishing. More going.</h2><p className="mt-6 max-w-[340px] text-[15px] leading-7 text-[#64786b]">The best travel plan isn’t the one with the most places. It’s the one that still feels good when you’re on your way home.</p></div><div className="grid gap-x-8 gap-y-12 sm:grid-cols-2">{features.map(feature => <div key={feature.eyebrow} className="feature-item"><div className="flex items-center gap-3 text-[#769d29]"><feature.icon size={18} /><span className="text-[10px] font-bold tracking-[0.16em]">{feature.eyebrow}</span></div><h3 className="mt-4 font-display text-2xl font-semibold tracking-[-0.05em]">{feature.title}</h3><p className="mt-2 max-w-[250px] text-sm leading-6 text-[#6b7f74]">{feature.body}</p></div>)}</div></div></div></section>
 
         <section id="discover" className="border-y border-[#dce5dc] bg-[#17352c] px-5 py-24 text-[#f6f3ec] sm:px-8 lg:py-28"><div className="mx-auto max-w-[1160px]"><div className="flex flex-col justify-between gap-5 md:flex-row md:items-end"><div><p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#b4d64c]">03 / Explore India</p><h2 className="mt-3 font-display text-5xl font-semibold tracking-[-0.07em] sm:text-6xl">The places you<br /><em className="not-italic text-[#d6f261]">almost missed.</em></h2></div><p className="max-w-[300px] text-sm leading-6 text-[#afc0b4]">Not every great trip needs a flight. Start close, go deeper and leave a little room for surprise.</p></div><div className="mt-12 grid gap-5 lg:grid-cols-3">{(featured.data ?? []).map((trip, index) => <button type="button" key={trip.id} onClick={() => { setForm({ ...form, budgetPerPerson: String(Math.max(2000, trip.baseCost + 380)) }); openPlanner(); }} className="group text-left"><div className="relative h-[330px] overflow-hidden rounded-[24px] bg-[#385a4b]"><img src={trip.image} alt={trip.name} className="h-full w-full object-cover opacity-75 transition duration-500 group-hover:scale-105 group-hover:opacity-90" /><div className="absolute inset-0 bg-gradient-to-t from-[#102920] via-[#17352c]/10 to-transparent" /><span className="absolute left-5 top-5 rounded-full bg-[#f6f3ec]/90 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.15em] text-[#17352c]">0{index + 1} / {trip.highlight}</span><div className="absolute bottom-5 left-5 right-5"><div className="flex items-end justify-between gap-4"><div><p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#c4d3c3]">{trip.state}</p><h3 className="mt-1 font-display text-3xl font-semibold tracking-[-0.06em]">{trip.name}</h3></div><span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#d6f261] text-[#17352c] transition-transform group-hover:rotate-[-45deg]"><ArrowRight size={17} /></span></div></div></div><div className="mt-4 flex items-center justify-between text-xs text-[#a9bdb0]"><span>{trip.eyebrow}</span><span className="font-semibold text-[#d6f261]">from ₹{formatMoney(trip.baseCost)} / person</span></div></button>)}</div></div></section>
 
@@ -217,7 +261,10 @@ export default function Home() {
         <section className="px-5 pb-20 sm:px-8"><div className="mx-auto max-w-[1160px] rounded-[28px] border border-[#d7e0d6] bg-[#edf2ea] p-7 sm:p-10"><div className="flex flex-col justify-between gap-7 md:flex-row md:items-center"><div className="flex items-start gap-4"><div className="rounded-full bg-[#d6f261] p-3 text-[#17352c]"><ShieldCheck size={20} /></div><div><h3 className="font-display text-2xl font-semibold tracking-[-0.05em]">Travel with a little more certainty.</h3><p className="mt-1 max-w-[520px] text-sm leading-6 text-[#667b70]">Partner badges show the status of submitted information and documents. Verification supports better decisions — it does not guarantee personal safety.</p></div></div><button type="button" onClick={() => toast.info("Verification standards are coming soon.")} className="inline-flex shrink-0 items-center gap-2 text-[11px] font-bold uppercase tracking-[0.15em] text-[#597020]">Our trust process <ExternalLink size={14} /></button></div></div></section>
       </main>
 
-      <footer className="border-t border-[#dce5dc] bg-[#f6f3ec] px-5 py-10 sm:px-8"><div className="mx-auto flex max-w-[1160px] flex-col justify-between gap-6 sm:flex-row sm:items-end"><div><div className="flex items-center gap-2 font-display text-xl font-bold tracking-[-0.04em]"><span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#17352c] text-[#d6f261]"><Compass size={15} /></span> YatraFlow</div><p className="mt-2 text-xs text-[#788d82]">Travel smarter. Discover more.</p></div><div className="text-left text-[10px] font-bold uppercase tracking-[0.15em] text-[#8a9b91] sm:text-right"><div>Built for thoughtful travellers</div><div className="mt-2">© 2026 YatraFlow · Smart India Hackathon</div></div></div></footer>
+      <footer id="contact" className="scroll-mt-24 border-t border-[#dce5dc] bg-[#f6f3ec] px-5 py-10 sm:px-8"><div className="mx-auto flex max-w-[1160px] flex-col justify-between gap-6 sm:flex-row sm:items-end"><div><div className="flex items-center gap-2 font-display text-xl font-bold tracking-[-0.04em]"><span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#17352c] text-[#d6f261]"><Compass size={15} /></span> YatraFlow</div><p className="mt-2 text-xs text-[#788d82]">Travel smarter. Discover more.</p><div className="mt-4 flex flex-wrap gap-3 text-xs text-[#64786b]"><a className="hover:text-[#17352c]" href="mailto:hello@yatraflow.in">hello@yatraflow.in</a><span>·</span><button type="button" onClick={() => setPartnerOpen(true)} className="hover:text-[#17352c]">Partner with us</button></div></div><div className="text-left text-[10px] font-bold uppercase tracking-[0.15em] text-[#8a9b91] sm:text-right"><div>Built for thoughtful travellers</div><div className="mt-2">© 2026 YatraFlow · Smart India Hackathon</div></div></div></footer>
+
+      <button type="button" aria-label="Open YatraFlow AI assistant" onClick={() => setChatOpen(!chatOpen)} className="fixed bottom-5 right-5 z-40 flex items-center gap-2 rounded-full bg-[#17352c] px-4 py-3 text-[10px] font-bold uppercase tracking-[0.13em] text-[#f6f3ec] shadow-[0_8px_25px_rgba(23,53,44,.22)] transition hover:bg-[#285044]"><MessageCircle size={16} className="text-[#d6f261]" /> Ask YatraFlow AI</button>
+      {chatOpen && <div className="fixed bottom-[76px] right-5 z-50 w-[min(390px,calc(100vw-2rem))] overflow-hidden rounded-[24px] border border-[#c9d8c6] bg-[#f6f3ec] shadow-2xl"><div className="flex items-center justify-between bg-[#17352c] p-4 text-[#f6f3ec]"><div><div className="flex items-center gap-2 text-sm font-semibold"><Sparkles size={15} className="text-[#d6f261]" /> YatraFlow AI</div><p className="mt-1 text-[10px] text-[#b9cbbd]">Intent, explanations and refinements — not invented prices.</p></div><button type="button" onClick={() => setChatOpen(false)} className="rounded-full p-1.5 text-[#b9cbbd] hover:bg-[#2c5143]"><MoreHorizontal size={16} /></button></div><AIChatBox messages={chatMessages} onSendMessage={handleChat} height={380} emptyStateMessage="Ask about your route, budget or preferences." suggestedPrompts={["Find a quieter trip", "Explain why Rajgir fits", "What can ₹1,500 buy?"]} className="rounded-none border-0 shadow-none" /> </div>}
 
       {authOpen && <AuthModal mode={authMode} onModeChange={setAuthMode} onClose={() => setAuthOpen(false)} />}
       {partnerOpen && <PartnerModal onSubmit={submitPartner} onClose={() => setPartnerOpen(false)} loading={partnerLead.isPending} />}
