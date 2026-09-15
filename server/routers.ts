@@ -78,6 +78,17 @@ const hiddenGems = [
   { id: "dholavira", name: "Dholavira", state: "Gujarat", image: "/manus-storage/dholavira_1977cc3f.jpg", tags: ["Archaeology", "Desert", "Stargazing"], bestTime: "Nov–Feb", description: "Harappan ruins, salt flats and zero-light-pollution skies beyond the Rann crowds.", source: "Image research reference" },
 ];
 
+const routeData: Record<string, { name: string; lat: number; lng: number }[]> = {
+  chitkul: [{ name: "Shimla", lat: 31.1048, lng: 77.1734 }, { name: "Sangla", lat: 31.4216, lng: 78.2695 }, { name: "Chitkul", lat: 31.3516, lng: 78.4372 }],
+  pithoragarh: [{ name: "Haldwani", lat: 29.2183, lng: 79.513 }, { name: "Almora", lat: 29.5971, lng: 79.6591 }, { name: "Pithoragarh", lat: 29.5829, lng: 80.2182 }],
+  ukhimath: [{ name: "Rishikesh", lat: 30.0869, lng: 78.2676 }, { name: "Rudraprayag", lat: 30.2844, lng: 78.9811 }, { name: "Ukhimath", lat: 30.5286, lng: 79.1986 }],
+  mana: [{ name: "Rishikesh", lat: 30.0869, lng: 78.2676 }, { name: "Joshimath", lat: 30.555, lng: 79.565 }, { name: "Mana Village", lat: 30.7739, lng: 79.4933 }],
+  bundi: [{ name: "Jaipur", lat: 26.9124, lng: 75.7873 }, { name: "Kota", lat: 25.2138, lng: 75.8648 }, { name: "Bundi", lat: 25.438, lng: 75.6373 }],
+  warwan: [{ name: "Srinagar", lat: 34.0837, lng: 74.7973 }, { name: "Kishtwar", lat: 33.313, lng: 75.767 }, { name: "Warwan Valley", lat: 33.706, lng: 75.725 }],
+  turtuk: [{ name: "Leh", lat: 34.1526, lng: 77.5771 }, { name: "Nubra Valley", lat: 35.3, lng: 77.55 }, { name: "Turtuk", lat: 35.5269, lng: 76.8346 }],
+  dholavira: [{ name: "Bhuj", lat: 23.242, lng: 69.6669 }, { name: "Rann of Kutch", lat: 23.7337, lng: 69.8597 }, { name: "Dholavira", lat: 23.887, lng: 70.213 }],
+};
+
 const feedbackInput = z.object({ name: z.string().min(2).max(80), email: z.string().email(), rating: z.number().int().min(1).max(5), category: z.string().min(2).max(40), message: z.string().min(10).max(1000) });
 const weatherInput = z.object({ destination: z.string().min(2).max(80) });
 
@@ -211,8 +222,11 @@ export const appRouter = router({
   }),
   trip: router({
     featured: publicProcedure.query(() => featuredTrips),
-    hiddenGems: publicProcedure.query(() => hiddenGems),
-    weatherAlert: publicProcedure.input(weatherInput).query(({ input }) => ({ destination: input.destination, level: "demo", headline: "Check conditions before you leave", detail: `Weather for ${input.destination} is shown as a planning signal in this pilot. Confirm the live forecast, road conditions and local advisories before departure.`, updatedAt: new Date().toISOString(), action: "Verify live forecast" })),
+    hiddenGems: publicProcedure.query(() => hiddenGems.map(gem => ({ ...gem, routeStops: routeData[gem.id] ?? [] }))),
+    weatherAlert: publicProcedure.input(weatherInput).query(({ input }) => {
+      const mountainDestination = ["Chitkul", "Pithoragarh", "Ukhimath", "Mana Village", "Warwan Valley", "Turtuk"].includes(input.destination);
+      return { destination: input.destination, level: mountainDestination ? "watch" : "info", headline: mountainDestination ? "Mountain conditions can change quickly" : "Check conditions before you leave", detail: `Planning alert for ${input.destination}: confirm the live forecast, road conditions, closures and local advisories before departure.`, updatedAt: new Date().toISOString(), action: "Verify live forecast" } as const;
+    }),
     discover: publicProcedure.input(discoverInput).mutation(({ input }) => {
       const all = featuredTrips.map(base => createTrip(base, input));
       const results = all.filter(trip => trip.total <= input.budgetPerPerson).sort((a, b) => b.fitScore - a.fitScore || a.total - b.total);

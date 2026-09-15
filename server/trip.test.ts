@@ -116,7 +116,7 @@ describe("destination support", () => {
   it("returns a weather planning alert for a selected destination", async () => {
     const caller = appRouter.createCaller(createPublicContext());
     const alert = await caller.trip.weatherAlert({ destination: "Chitkul" });
-    expect(alert.level).toBe("demo");
+    expect(alert.level).toBe("watch");
     expect(alert.detail).toContain("Chitkul");
     expect(alert.action).toBe("Verify live forecast");
   });
@@ -133,5 +133,22 @@ describe("feedback.submit", () => {
       message: "Please add more quiet villages in the northeast.",
     });
     expect(result.success).toBe(true);
+  });
+});
+
+
+describe("map routes and weather severity", () => {
+  it("returns complete route stops for each hidden gem", async () => {
+    const caller = appRouter.createCaller(createPublicContext());
+    const gems = await caller.trip.hiddenGems();
+    expect(gems.every(gem => gem.routeStops.length >= 3)).toBe(true);
+    expect(gems.find(gem => gem.name === "Dholavira")?.routeStops.at(-1)?.name).toBe("Dholavira");
+  });
+
+  it("marks mountain destinations with a watch alert", async () => {
+    const caller = appRouter.createCaller(createPublicContext());
+    const alert = await caller.trip.weatherAlert({ destination: "Turtuk" });
+    expect(alert.level).toBe("watch");
+    expect(alert.headline).toContain("Mountain");
   });
 });
