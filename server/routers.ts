@@ -67,6 +67,20 @@ const featuredTrips = [
   },
 ];
 
+const hiddenGems = [
+  { id: "chitkul", name: "Chitkul", state: "Himachal Pradesh", image: "/manus-storage/chitkul_886298cc.webp", tags: ["Nature", "Peace", "Backpacking"], bestTime: "Mar–Jun · Sep–Oct", description: "India’s last village on the Baspa River, with wooden homes, quiet trails and high-altitude air.", source: "Colorful Destinations India" },
+  { id: "pithoragarh", name: "Pithoragarh", state: "Uttarakhand", image: "/manus-storage/pithoragarh_3915b021.jpg", tags: ["Himalaya", "Heritage", "Wildlife"], bestTime: "Apr–Jun · Sep–Nov", description: "A Kumaon valley of forts, alpine meadows, monasteries and wide Himalayan views.", source: "Image research reference" },
+  { id: "ukhimath", name: "Ukhimath", state: "Uttarakhand", image: "/manus-storage/ukhimath_e2a5290b.jpg", tags: ["Spiritual", "Lake", "Slow travel"], bestTime: "Oct–Mar", description: "The winter seat of Kedarnath, with Omkareshwar Temple and the reflective Deoria Tal hike.", source: "Image research reference" },
+  { id: "mana", name: "Mana Village", state: "Uttarakhand", image: "/manus-storage/mana-village_0e1c3c53.jpg", tags: ["Mythology", "Hiking", "Culture"], bestTime: "May–Jun · Sep–Oct", description: "India’s last inhabited village near Badrinath, Vyas Gufa, Bhim Pul and the Saraswati River.", source: "Image research reference" },
+  { id: "bundi", name: "Bundi", state: "Rajasthan", image: "/manus-storage/bundi_8620930e.jpg", tags: ["Heritage", "Art", "Architecture"], bestTime: "Oct–Mar", description: "A quieter Rajasthan canvas of palace murals, stepwells and blue-painted old-city lanes.", source: "Image research reference" },
+  { id: "warwan", name: "Warwan Valley", state: "Kashmir", image: "/manus-storage/warwan-valley_d8915316.jpg", tags: ["Trekking", "Wilderness", "Community"], bestTime: "Jul–Sep", description: "A raw Himalayan valley for serious trekkers, river camps and long mountain silence.", source: "Image research reference" },
+  { id: "turtuk", name: "Turtuk", state: "Ladakh", image: "/manus-storage/turtuk_958e4b02.jpg", tags: ["Balti culture", "Apricots", "Borderlands"], bestTime: "May–Sep", description: "A northern village of Balti homes, apricot orchards and Shyok Valley views.", source: "Image research reference" },
+  { id: "dholavira", name: "Dholavira", state: "Gujarat", image: "/manus-storage/dholavira_1977cc3f.jpg", tags: ["Archaeology", "Desert", "Stargazing"], bestTime: "Nov–Feb", description: "Harappan ruins, salt flats and zero-light-pollution skies beyond the Rann crowds.", source: "Image research reference" },
+];
+
+const feedbackInput = z.object({ name: z.string().min(2).max(80), email: z.string().email(), rating: z.number().int().min(1).max(5), category: z.string().min(2).max(40), message: z.string().min(10).max(1000) });
+const weatherInput = z.object({ destination: z.string().min(2).max(80) });
+
 const transportAdjustment: Record<string, number> = {
   any: 0,
   train: 0,
@@ -197,6 +211,8 @@ export const appRouter = router({
   }),
   trip: router({
     featured: publicProcedure.query(() => featuredTrips),
+    hiddenGems: publicProcedure.query(() => hiddenGems),
+    weatherAlert: publicProcedure.input(weatherInput).query(({ input }) => ({ destination: input.destination, level: "demo", headline: "Check conditions before you leave", detail: `Weather for ${input.destination} is shown as a planning signal in this pilot. Confirm the live forecast, road conditions and local advisories before departure.`, updatedAt: new Date().toISOString(), action: "Verify live forecast" })),
     discover: publicProcedure.input(discoverInput).mutation(({ input }) => {
       const all = featuredTrips.map(base => createTrip(base, input));
       const results = all.filter(trip => trip.total <= input.budgetPerPerson).sort((a, b) => b.fitScore - a.fitScore || a.total - b.total);
@@ -239,6 +255,12 @@ export const appRouter = router({
         console.info(`[YatraFlow] Partner interest from ${input.name} (${input.partnerType}) in ${input.city}`);
         return { success: true, message: "Thanks — our partner team will be in touch soon." } as const;
       }),
+  }),
+  feedback: router({
+    submit: publicProcedure.input(feedbackInput).mutation(({ input }) => {
+      console.info(`[YatraFlow] Feedback from ${input.name}: ${input.rating}/5 (${input.category})`);
+      return { success: true, message: "Thanks — your feedback will help us make travel planning more useful." } as const;
+    }),
   }),
 });
 

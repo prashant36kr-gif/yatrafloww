@@ -102,3 +102,36 @@ describe("trip.discover infeasibility guidance", () => {
     expect(result.nearestBudget).toBeGreaterThan(1000);
   });
 });
+
+
+describe("destination support", () => {
+  it("returns research-backed hidden gems with image references", async () => {
+    const caller = appRouter.createCaller(createPublicContext());
+    const gems = await caller.trip.hiddenGems();
+    expect(gems.length).toBeGreaterThanOrEqual(8);
+    expect(gems.some(gem => gem.name === "Chitkul")).toBe(true);
+    expect(gems.every(gem => gem.image.startsWith("/manus-storage/"))).toBe(true);
+  });
+
+  it("returns a weather planning alert for a selected destination", async () => {
+    const caller = appRouter.createCaller(createPublicContext());
+    const alert = await caller.trip.weatherAlert({ destination: "Chitkul" });
+    expect(alert.level).toBe("demo");
+    expect(alert.detail).toContain("Chitkul");
+    expect(alert.action).toBe("Verify live forecast");
+  });
+});
+
+describe("feedback.submit", () => {
+  it("accepts valid traveller feedback", async () => {
+    const caller = appRouter.createCaller(createPublicContext());
+    const result = await caller.feedback.submit({
+      name: "Aarav Singh",
+      email: "aarav@example.com",
+      rating: 5,
+      category: "hidden-gems",
+      message: "Please add more quiet villages in the northeast.",
+    });
+    expect(result.success).toBe(true);
+  });
+});
