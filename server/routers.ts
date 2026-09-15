@@ -83,11 +83,23 @@ function durationMultiplier(duration: number) {
   return 1.62 + (duration - 4) * 0.28;
 }
 
-function createTrip(base: (typeof featuredTrips)[number], input: z.infer<typeof discoverInput>) {
+const discoverInput = z.object({
+  budgetPerPerson: z.number().int().min(300).max(100000),
+  origin: z.string().min(2).max(80),
+  duration: z.number().int().min(1).max(14),
+  travelers: z.number().int().min(1).max(12),
+  interest: z.string().min(1).max(40),
+  transport: z.enum(["any", "train", "bus", "cab", "public"]),
+});
+
+type DiscoverParams = z.infer<typeof discoverInput>;
+
+function createTrip(base: (typeof featuredTrips)[number], input: DiscoverParams) {
   const multiplier = durationMultiplier(input.duration);
   const total = Math.max(520, Math.round(base.baseCost * multiplier + (transportAdjustment[input.transport] ?? 0)));
   const buffer = Math.max(0, input.budgetPerPerson - total);
-  const fitScore = Math.max(58, Math.min(98, Math.round(100 - (total / Math.max(input.budgetPerPerson, 1)) * 12 + (input.interest === "any" ? 2 : base.tags.some(tag => tag.toLowerCase() === input.interest) ? 4 : 0))));
+  const preferenceFit = input.interest === "any" || base.tags.some(tag => tag.toLowerCase() === input.interest);
+  const fitScore = Math.max(58, Math.min(98, Math.round(100 - (total / Math.max(input.budgetPerPerson, 1)) * 12 + (preferenceFit ? 4 : 0))));
   const travelersTotal = total * input.travelers;
   const groupBudget = input.budgetPerPerson * input.travelers;
   const transportCost = Math.max(160, Math.round(total * 0.28 + (transportAdjustment[input.transport] ?? 0)));
@@ -108,6 +120,10 @@ function createTrip(base: (typeof featuredTrips)[number], input: z.infer<typeof 
     fitScore,
     travelersTotal,
     groupBudget,
+    preferenceFit,
+    confidence: "Estimated / calculated",
+    freshness: "Demo estimate · reviewed Sep 2026",
+    sourceNote: "Illustrative MVP estimate; partner and live inventory feeds are planned later.",
     breakdown: {
       transport: transportCost,
       stay: stayCost,
@@ -115,10 +131,18 @@ function createTrip(base: (typeof featuredTrips)[number], input: z.infer<typeof 
       activities: activitiesCost,
       local: localCost,
     },
+    explainability: [
+      { label: "Budget fit", value: `₹${total.toLocaleString("en-IN")} / ₹${input.budgetPerPerson.toLocaleString("en-IN")}`, reason: `₹${buffer.toLocaleString("en-IN")} buffer for uncertainty and small extras` },
+      { label: "Time fit", value: `${input.duration} ${input.duration === 1 ? "day" : "days"}`, reason: `Transfer is approximately ${base.travelTime}` },
+      { label: "Group fit", value: `${input.travelers} travellers`, reason: "Shared routes and stays improve group economics" },
+      { label: "Preference fit", value: preferenceFit ? `${input.interest} matched` : "Broad match", reason: preferenceFit ? "Activities align with your selected interest" : "Ranked for overall feasibility first" },
+      { label: "Transport choice", value: "Train / bus / cab / local", reason: "Choose cost ↔ time; no single vehicle is forced" },
+    ],
   };
 }
 
-const discoverInput = z.object({
+const optimizeInput = z.object({
+  tripId: z.string().min(1),
   budgetPerPerson: z.number().int().min(300).max(100000),
   origin: z.string().min(2).max(80),
   duration: z.number().int().min(1).max(14),
@@ -126,6 +150,40 @@ const discoverInput = z.object({
   interest: z.string().min(1).max(40),
   transport: z.enum(["any", "train", "bus", "cab", "public"]),
 });
+
+function buildOptimizerOptions(trip: ReturnType<typeof createTrip>, budgetPerPerson: number) {
+  const options = [
+    {
+      id: "shared-transport",
+      title: "Use public / shared transport",
+      component: "Transport",
+      savings: Math.max(80, Math.round(trip.breakdown.transport * 0.28)),
+      reason: "Trade a little time for a lower fare and keep the route intact.",
+    },
+    {
+      id: "dorm-stay",
+      title: "Swap to a dormitory stay",
+      component: "Stay",
+      savings: Math.max(120, Math.round(trip.breakdown.stay * 0.33)),
+      reason: "Keep the same neighbourhood while giving the overnight line more breathing room.",
+    },
+    {
+      id: "free-experience",
+      title: "Choose a free local experience",
+      component: "Activities",
+      savings: Math.max(80, Math.round(trip.breakdown.activities * 0.45)),
+      reason: "Replace one ticketed activity with a walk, market or public viewpoint.",
+    },
+  ].map(option => ({
+    ...option,
+    newTotal: Math.max(420, trip.total - option.savings),
+    groupTotal: Math.max(420, trip.total - option.savings) * trip.travelers,
+    fits: trip.total - option.savings <= budgetPerPerson,
+  }));
+
+  const best = [...options].sort((a, b) => Number(b.fits) - Number(a.fits) || a.newTotal - b.newTotal)[0];
+  return { options, best };
+}
 
 export const appRouter = router({
   system: systemRouter,
@@ -140,18 +198,37 @@ export const appRouter = router({
   trip: router({
     featured: publicProcedure.query(() => featuredTrips),
     discover: publicProcedure.input(discoverInput).mutation(({ input }) => {
-      const results = featuredTrips
-        .map(base => createTrip(base, input))
-        .filter(trip => trip.total <= input.budgetPerPerson)
-        .sort((a, b) => b.fitScore - a.fitScore || a.total - b.total);
+      const all = featuredTrips.map(base => createTrip(base, input));
+      const results = all.filter(trip => trip.total <= input.budgetPerPerson).sort((a, b) => b.fitScore - a.fitScore || a.total - b.total);
+      const cheapest = [...all].sort((a, b) => a.total - b.total)[0];
 
       return {
         input,
         results,
         totalFound: results.length,
+        nearestBudget: cheapest?.total ?? null,
+        unlockSuggestions: results.length === 0 && cheapest ? [
+          `Increase budget to ₹${cheapest.total.toLocaleString("en-IN")}`,
+          "Use public / shared transport to lower travel cost",
+          "Add 1 day for more route options",
+          "Change origin to expand the feasible radius",
+        ] : [],
         message: results.length === 0
-          ? "No exact matches yet — try a slightly higher budget or a shorter trip."
+          ? "No feasible complete trip found under current constraints"
           : `${results.length} trips fit your constraints`,
+      };
+    }),
+    optimize: publicProcedure.input(optimizeInput).mutation(({ input }) => {
+      const base = featuredTrips.find(trip => trip.id === input.tripId) ?? featuredTrips[0];
+      const trip = createTrip(base, input);
+      const optimizer = buildOptimizerOptions(trip, input.budgetPerPerson);
+      return {
+        trip,
+        budgetPerPerson: input.budgetPerPerson,
+        overBy: Math.max(0, trip.total - input.budgetPerPerson),
+        feasible: trip.total <= input.budgetPerPerson,
+        message: trip.total <= input.budgetPerPerson ? "Already within budget — protect the buffer." : optimizer.best.fits ? "One component swap brings this trip back within budget." : "No single swap is enough yet; combine the smallest trade-offs.",
+        ...optimizer,
       };
     }),
   }),
@@ -166,5 +243,5 @@ export const appRouter = router({
 });
 
 export type AppRouter = typeof appRouter;
-export type DiscoverInput = z.infer<typeof discoverInput>;
+export type DiscoverInput = DiscoverParams;
 export type FeaturedTrip = (typeof featuredTrips)[number];

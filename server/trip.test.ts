@@ -61,3 +61,44 @@ describe("partner.requestInfo", () => {
     expect(result).toEqual({ success: true, message: "Thanks — our partner team will be in touch soon." });
   });
 });
+
+
+describe("trip.optimize", () => {
+  it("returns a component swap that can restore feasibility", async () => {
+    const caller = appRouter.createCaller(createPublicContext());
+    const result = await caller.trip.optimize({
+      tripId: "rajgir",
+      budgetPerPerson: 1400,
+      origin: "Patna",
+      duration: 2,
+      travelers: 4,
+      interest: "nature",
+      transport: "any",
+    });
+
+    expect(result.feasible).toBe(false);
+    expect(result.overBy).toBe(120);
+    expect(result.best.newTotal).toBeLessThan(result.trip.total);
+    expect(result.best.savings).toBeGreaterThan(0);
+    expect(result.options.every(option => option.newTotal === result.trip.total - option.savings)).toBe(true);
+  });
+});
+
+describe("trip.discover infeasibility guidance", () => {
+  it("explains what could unlock a trip instead of inventing a result", async () => {
+    const caller = appRouter.createCaller(createPublicContext());
+    const result = await caller.trip.discover({
+      budgetPerPerson: 1000,
+      origin: "Patna",
+      duration: 2,
+      travelers: 4,
+      interest: "nature",
+      transport: "any",
+    });
+
+    expect(result.totalFound).toBe(0);
+    expect(result.message).toContain("No feasible");
+    expect(result.unlockSuggestions.length).toBeGreaterThan(0);
+    expect(result.nearestBudget).toBeGreaterThan(1000);
+  });
+});
