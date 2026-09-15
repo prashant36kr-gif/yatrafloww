@@ -240,6 +240,7 @@ export default function Home() {
             <a className="transition-colors hover:text-[#17352c]" href="#home">Home</a>
             <a className="transition-colors hover:text-[#17352c]" href="#about">About</a>
             <a className="transition-colors hover:text-[#17352c]" href="#contact">Contact us</a>
+            <a className="transition-colors hover:text-[#17352c]" href="#latest">Latest places</a>
             <a className="transition-colors hover:text-[#17352c]" href="#services">Services</a>
           </nav>
           <div className="flex items-center gap-2">
@@ -248,7 +249,7 @@ export default function Home() {
             <button type="button" aria-label="Open navigation" onClick={() => setMobileNav(!mobileNav)} className="rounded-full p-2 lg:hidden"><Menu size={22} /></button>
           </div>
         </div>
-        {mobileNav && <div className="border-t border-[#dce5dc] bg-[#f6f3ec] px-5 py-4 lg:hidden"><div className="flex flex-col gap-4 text-[11px] font-bold uppercase tracking-[0.16em] text-[#5d756b]"><a href="#home" onClick={() => setMobileNav(false)}>Home</a><a href="#about" onClick={() => setMobileNav(false)}>About</a><a href="#contact" onClick={() => setMobileNav(false)}>Contact us</a><a href="#services" onClick={() => setMobileNav(false)}>Services</a><button className="w-fit text-left" onClick={() => { setAuthOpen(true); setMobileNav(false); }}>Log in / join</button></div></div>}
+        {mobileNav && <div className="border-t border-[#dce5dc] bg-[#f6f3ec] px-5 py-4 lg:hidden"><div className="flex flex-col gap-4 text-[11px] font-bold uppercase tracking-[0.16em] text-[#5d756b]"><a href="#home" onClick={() => setMobileNav(false)}>Home</a><a href="#about" onClick={() => setMobileNav(false)}>About</a><a href="#contact" onClick={() => setMobileNav(false)}>Contact us</a><a href="#latest" onClick={() => setMobileNav(false)}>Latest places</a><a href="#services" onClick={() => setMobileNav(false)}>Services</a><button className="w-fit text-left" onClick={() => { setAuthOpen(true); setMobileNav(false); }}>Log in / join</button></div></div>}
       </header>
 
       <main>
