@@ -14,3 +14,9 @@ Research pass completed 2026-09-15 using public sources. All budgets are conserv
 | Gokarna | ₹11,000 | https://karnatakatourism.org/en/destinations/gokarna ; https://www.rome2rio.com/Train/Patna/Gokarna-Road ; https://www.irctc.co.in/nget/train-search |
 
 Important constraint: for long-haul candidates (McLeod Ganj, Puducherry, Gokarna, Orchha, Cherrapunji), the estimate represents two sightseeing days plus transit days. It must not be described as a two-calendar-day door-to-door trip from Patna.
+
+## Bihar article expansion
+
+Source article: https://www.thrillophilia.com/unexplored-places-in-bihar
+
+Added planner-ready routes for Barabar Caves (₹2,200; village homestay), Dungeshwari & Muchalinda (₹1,900; pilgrim dormitory), Telhar Kund (₹2,800; forest-edge homestay), Kesaria Stupa (₹2,600; Motihari dormitory), Lauriya Nandangarh (₹3,200; Bettiah homestay), and Munger Yoga & Ganga (₹2,400; ashram dormitory). These are conservative planning estimates, not live quotes. The article also lists Sonbhandar Caves, Rizwan Castle, Kumhrar, Dashrath Manjhi Road, and Griddhakuta Peak; Sonbhandar, Kumhrar and Griddhakuta are already represented by the existing Rajgir/Bodh Gaya content, while Rizwan Castle and Dashrath Manjhi Road were not made standalone budget trips because they need better current access and stay verification.

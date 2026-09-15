@@ -163,3 +163,17 @@ describe("research-backed feasible trips", () => {
     expect(result.results.find(trip => trip.id === "varanasi-sarnath")?.researchNote).toContain("₹3,500");
   });
 });
+
+
+describe("Bihar hidden-gem affordability", () => {
+  it("returns researched Bihar places with homestay or dormitory options", async () => {
+    const caller = appRouter.createCaller(createPublicContext());
+    const result = await caller.trip.discover({ budgetPerPerson: 3000, origin: "Patna", duration: 2, travelers: 2, interest: "offbeat", transport: "any" });
+    const biharIds = ["barabar-caves", "dungeshwari-muchalinda", "telhar-kund", "kesaria-stupa", "munger-yoga"];
+    const biharTrips = result.results.filter(trip => biharIds.includes(trip.id));
+    expect(biharTrips.length).toBeGreaterThanOrEqual(4);
+    expect(biharTrips.some(trip => trip.stay.toLowerCase().includes("homestay"))).toBe(true);
+    expect(biharTrips.some(trip => trip.stay.toLowerCase().includes("dormitory"))).toBe(true);
+    expect(biharTrips.every(trip => trip.researchNote?.includes("estimate"))).toBe(true);
+  });
+});
