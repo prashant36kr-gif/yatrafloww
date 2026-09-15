@@ -152,3 +152,14 @@ describe("map routes and weather severity", () => {
     expect(alert.headline).toContain("Mountain");
   });
 });
+
+
+describe("research-backed feasible trips", () => {
+  it("includes additional source-backed destinations when the budget allows", async () => {
+    const caller = appRouter.createCaller(createPublicContext());
+    const result = await caller.trip.discover({ budgetPerPerson: 4000, origin: "Patna", duration: 2, travelers: 2, interest: "heritage", transport: "any" });
+    expect(result.results.some(trip => trip.id === "varanasi-sarnath")).toBe(true);
+    expect(result.results.some(trip => trip.id === "purulia")).toBe(true);
+    expect(result.results.find(trip => trip.id === "varanasi-sarnath")?.researchNote).toContain("₹3,500");
+  });
+});
