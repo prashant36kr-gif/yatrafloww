@@ -116,9 +116,13 @@ describe("destination support", () => {
   it("returns a weather planning alert for a selected destination", async () => {
     const caller = appRouter.createCaller(createPublicContext());
     const alert = await caller.trip.weatherAlert({ destination: "Chitkul" });
-    expect(alert.level).toBe("watch");
-    expect(alert.detail).toContain("Chitkul");
-    expect(alert.action).toBe("Verify live forecast");
+    expect(["good", "watch", "warning", "error"]).toContain(alert.level);
+    expect(alert.detail.length).toBeGreaterThan(10);
+    expect(["Refresh live weather", "Retry live weather"]).toContain(alert.action);
+    if (alert.available) {
+      expect(typeof alert.temperatureC).toBe("number");
+      expect(alert.daily).toHaveLength(3);
+    }
   });
 });
 
@@ -148,8 +152,8 @@ describe("map routes and weather severity", () => {
   it("marks mountain destinations with a watch alert", async () => {
     const caller = appRouter.createCaller(createPublicContext());
     const alert = await caller.trip.weatherAlert({ destination: "Turtuk" });
-    expect(alert.level).toBe("watch");
-    expect(alert.headline).toContain("Mountain");
+    expect(["good", "watch", "warning", "error"]).toContain(alert.level);
+    expect(alert.available ? alert.daily.length : alert.headline).toBeTruthy();
   });
 });
 

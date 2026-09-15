@@ -391,6 +391,26 @@ const routeData: Record<string, { name: string; lat: number; lng: number }[]> = 
 const feedbackInput = z.object({ name: z.string().min(2).max(80), email: z.string().email(), rating: z.number().int().min(1).max(5), category: z.string().min(2).max(40), message: z.string().min(10).max(1000) });
 const weatherInput = z.object({ destination: z.string().min(2).max(80) });
 
+const weatherLocations: Record<string, { latitude: number; longitude: number; label: string }> = {
+  Chitkul: { latitude: 31.3516, longitude: 78.4372, label: "Chitkul" }, Pithoragarh: { latitude: 29.5829, longitude: 80.2182, label: "Pithoragarh" }, Ukhimath: { latitude: 30.5286, longitude: 79.1986, label: "Ukhimath" }, "Mana Village": { latitude: 30.7739, longitude: 79.4933, label: "Mana Village" }, "Warwan Valley": { latitude: 33.706, longitude: 75.725, label: "Warwan Valley" }, Turtuk: { latitude: 35.5269, longitude: 76.8346, label: "Turtuk" }, Rajgir: { latitude: 25.0268, longitude: 85.4206, label: "Rajgir" }, "Bodh Gaya": { latitude: 24.6961, longitude: 84.9912, label: "Bodh Gaya" }, Deoghar: { latitude: 24.492, longitude: 86.696, label: "Deoghar" }, "Barabar Caves": { latitude: 25.005, longitude: 85.066, label: "Barabar Caves" }, "Telhar Kund": { latitude: 24.8904, longitude: 83.744, label: "Telhar Kund" }, "Kesaria Stupa": { latitude: 26.334, longitude: 84.854, label: "Kesaria Stupa" }, Munger: { latitude: 25.3757, longitude: 86.474, label: "Munger" }, Varanasi: { latitude: 25.3176, longitude: 82.9739, label: "Varanasi" }, Purulia: { latitude: 23.332, longitude: 86.365, label: "Purulia" }, Orchha: { latitude: 25.3519, longitude: 78.6407, label: "Orchha" }, Cherrapunji: { latitude: 25.284, longitude: 91.721, label: "Cherrapunji" }, "McLeod Ganj": { latitude: 32.2426, longitude: 76.3213, label: "McLeod Ganj" }, Puducherry: { latitude: 11.9416, longitude: 79.8083, label: "Puducherry" }, Gokarna: { latitude: 14.5479, longitude: 74.3188, label: "Gokarna" },
+};
+
+const weatherCodeLabel = (code: number) => code === 0 ? "Clear sky" : code <= 3 ? "Partly cloudy" : code <= 48 ? "Hazy / foggy" : code <= 57 ? "Drizzle" : code <= 67 ? "Rain" : code <= 77 ? "Snow" : code <= 82 ? "Rain showers" : "Thunderstorm risk";
+
+async function getLiveWeather(destination: string) {
+  const known = weatherLocations[destination] ?? weatherLocations.Rajgir;
+  const url = new URL("https://api.open-meteo.com/v1/forecast");
+  url.search = new URLSearchParams({ latitude: String(known.latitude), longitude: String(known.longitude), current: "temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,weather_code,wind_speed_10m,wind_gusts_10m", daily: "weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,sunrise,sunset", timezone: "auto", forecast_days: "3" }).toString();
+  const response = await fetch(url, { signal: AbortSignal.timeout(8000) });
+  if (!response.ok) throw new Error(`Weather provider returned ${response.status}`);
+  const data = await response.json() as { current: Record<string, number | string>; daily: Record<string, (number | string)[]>; timezone: string };
+  const current = data.current;
+  const daily = data.daily;
+  const temp = Number(current.temperature_2m); const wind = Number(current.wind_speed_10m); const gust = Number(current.wind_gusts_10m); const rainChance = Number(daily.precipitation_probability_max?.[0] ?? 0); const code = Number(current.weather_code);
+  const level = code >= 95 || gust >= 45 || rainChance >= 75 ? "warning" : gust >= 30 || rainChance >= 45 ? "watch" : "good";
+  return { available: true as const, destination: known.label, level, headline: weatherCodeLabel(code), detail: `${weatherCodeLabel(code)} now, with ${rainChance}% rain chance today.`, temperatureC: Math.round(temp), feelsLikeC: Math.round(Number(current.apparent_temperature)), humidity: Number(current.relative_humidity_2m), windKph: Math.round(wind), gustKph: Math.round(gust), precipitationMm: Number(current.precipitation), weatherCode: code, timezone: data.timezone, updatedAt: new Date().toISOString(), action: "Refresh live weather", daily: [0, 1, 2].map(index => ({ date: String(daily.time?.[index] ?? ""), minC: Math.round(Number(daily.temperature_2m_min?.[index] ?? 0)), maxC: Math.round(Number(daily.temperature_2m_max?.[index] ?? 0)), rainChance: Number(daily.precipitation_probability_max?.[index] ?? 0), summary: weatherCodeLabel(Number(daily.weather_code?.[index] ?? 0)) })) };
+}
+
 const transportAdjustment: Record<string, number> = {
   any: 0,
   train: 0,
@@ -522,9 +542,13 @@ export const appRouter = router({
   trip: router({
     featured: publicProcedure.query(() => featuredTrips),
     hiddenGems: publicProcedure.query(() => hiddenGems.map(gem => ({ ...gem, routeStops: routeData[gem.id] ?? [] }))),
-    weatherAlert: publicProcedure.input(weatherInput).query(({ input }) => {
-      const mountainDestination = ["Chitkul", "Pithoragarh", "Ukhimath", "Mana Village", "Warwan Valley", "Turtuk"].includes(input.destination);
-      return { destination: input.destination, level: mountainDestination ? "watch" : "info", headline: mountainDestination ? "Mountain conditions can change quickly" : "Check conditions before you leave", detail: `Planning alert for ${input.destination}: confirm the live forecast, road conditions, closures and local advisories before departure.`, updatedAt: new Date().toISOString(), action: "Verify live forecast" } as const;
+    weatherAlert: publicProcedure.input(weatherInput).query(async ({ input }) => {
+      try {
+        return await getLiveWeather(input.destination);
+      } catch (error) {
+        console.warn("[Weather] Live provider unavailable:", error);
+        return { available: false as const, destination: input.destination, level: "error" as const, headline: "Live weather unavailable", detail: "The live weather provider did not respond. Check again before departure and verify local advisories.", updatedAt: new Date().toISOString(), action: "Retry live weather", daily: [] };
+      }
     }),
     discover: publicProcedure.input(discoverInput).mutation(({ input }) => {
       const all = featuredTrips.map(base => createTrip(base, input));
