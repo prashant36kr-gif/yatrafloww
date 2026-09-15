@@ -181,3 +181,27 @@ describe("Bihar hidden-gem affordability", () => {
     expect(biharTrips.every(trip => trip.researchNote?.includes("estimate"))).toBe(true);
   });
 });
+
+
+describe("latest destinations", () => {
+  it("returns current-interest places with access, timing and sources", async () => {
+    const caller = appRouter.createCaller(createPublicContext());
+    const places = await caller.trip.latest();
+    expect(places.length).toBeGreaterThanOrEqual(6);
+    expect(places.some(place => place.name.includes("Neelakurinji"))).toBe(true);
+    expect(places.every(place => place.sources.length >= 2 && place.bestTime.length > 0 && place.access.length > 0)).toBe(true);
+  });
+
+  it("returns structured live weather metrics when the provider responds", async () => {
+    const caller = appRouter.createCaller(createPublicContext());
+    const weather = await caller.trip.weatherAlert({ destination: "Munnar" });
+    expect(["good", "watch", "warning", "error"]).toContain(weather.level);
+    if (weather.available) {
+      expect(typeof weather.temperatureC).toBe("number");
+      expect(typeof weather.windKph).toBe("number");
+      expect(weather.daily).toHaveLength(3);
+    } else {
+      expect(weather.detail.length).toBeGreaterThan(10);
+    }
+  }, 15000);
+});

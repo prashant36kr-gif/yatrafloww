@@ -377,6 +377,15 @@ const hiddenGems = [
   { id: "dholavira", name: "Dholavira", state: "Gujarat", image: "/manus-storage/dholavira_1977cc3f.jpg", tags: ["Archaeology", "Desert", "Stargazing"], bestTime: "Nov–Feb", description: "Harappan ruins, salt flats and zero-light-pollution skies beyond the Rann crowds.", source: "Image research reference" },
 ];
 
+const latestDestinations = [
+  { id: "munnar-neelakurinji", name: "Munnar Neelakurinji", state: "Kerala", badge: "Bloom watch · 2026", summary: "Purple-blue highland flowers are drawing attention to Chokramudi and Meesapulimala viewpoints this season.", whyNow: "Recent reporting says flowering began in late August 2026; verify the exact open viewpoint before travelling.", bestTime: "Aug–Oct", access: "Road from Munnar; local/forest-managed access", image: "/manus-storage/neelakurinji_3045818c.jpg", sources: ["https://www.keralatourism.org/destination/neelakurinji-the-blue-beauty-in-munnar/377/", "https://eravikulamnationalpark.in/"] },
+  { id: "meghalaya-monsoon", name: "Meghalaya Monsoon Routes", state: "Meghalaya", badge: "Waterfall season", summary: "Sohra, Nohkalikai, Seven Sisters, caves and living-root bridges become especially dramatic in the rains.", whyNow: "Official tourism guidance identifies June–September as the strongest window for waterfall flow, with landslide and road checks essential.", bestTime: "Jun–Sep", access: "Shillong hub + shared taxi to Sohra", image: "/manus-storage/meghalaya-falls_c026cd1d.jpg", sources: ["https://www.meghalayatourism.in/experiences/nature-&-wildlife/seasons/", "https://www.meghalayatourism.in/explore/destinations/by-region/khasi-hills/sohra/"] },
+  { id: "zanskar-valley-latest", name: "Zanskar Valley", state: "Ladakh", badge: "New road corridor", summary: "Remote monasteries, Penzi La landscapes and the Nimmu–Padum–Darcha road make this a frontier-scale Himalayan journey.", whyNow: "The 298-km road connection is improving access, but passes, permits and road openings remain seasonal.", bestTime: "Jun–Sep", access: "Long road journey from Leh or Kargil", image: "/manus-storage/zanskar_8566282b.jpg", sources: ["https://ladakh.gov.in/places-centres/zanskar/", "https://www.pib.gov.in/PressReleasePage.aspx?PRID=2016417"] },
+  { id: "gurez-valley-latest", name: "Gurez Valley", state: "Jammu & Kashmir", badge: "Offbeat valley", summary: "Kishanganga river views, Dard-Shina culture, log houses and Tulail make Gurez a strong slow-travel pick.", whyNow: "Visitor interest and tourism infrastructure are growing, while official access and security checks remain important.", bestTime: "Jun–Sep", access: "Srinagar → Bandipora → Razdan Pass", image: "/manus-storage/gurez_85e9265c.jpg", sources: ["https://bandipore.nic.in/tourist-place/gurez-valley/", "https://www.jktdc.co.in/Gurez.aspx"] },
+  { id: "odisha-coastal-heritage", name: "Odisha Coastal Heritage", state: "Odisha", badge: "2026 events", summary: "Puri, Konark, Chandrabhaga, Raghurajpur and Chilika combine living pilgrimage, UNESCO heritage, craft and nature.", whyNow: "Odisha Tourism lists the 2026 Konark Festival and Chilika Bird Festival among current events; confirm dates before booking.", bestTime: "Oct–Feb", access: "Bhubaneswar → Puri → Konark", image: "/manus-storage/dholavira_1977cc3f.jpg", sources: ["https://odishatourism.gov.in/content/tourism/en.html", "https://whc.unesco.org/en/list/246/"] },
+  { id: "chopta-tungnath-latest", name: "Chopta–Tungnath", state: "Uttarakhand", badge: "High-altitude classic", summary: "A steep temple and Chandrashila route with meadows, birdlife and big Garhwal views.", whyNow: "Recent conservation reporting highlights rising footfall and the need for marked trails, low-waste travel and seasonal checks.", bestTime: "Apr–Jun · Oct–Nov", access: "Road via Rudraprayag/Ukhimath; trek from Chopta", image: "/manus-storage/pithoragarh_3915b021.jpg", sources: ["https://uttarakhandtourism.gov.in/destination/chopta", "https://gmvnonline.com/tungnath-destination"] },
+];
+
 const routeData: Record<string, { name: string; lat: number; lng: number }[]> = {
   chitkul: [{ name: "Shimla", lat: 31.1048, lng: 77.1734 }, { name: "Sangla", lat: 31.4216, lng: 78.2695 }, { name: "Chitkul", lat: 31.3516, lng: 78.4372 }],
   pithoragarh: [{ name: "Haldwani", lat: 29.2183, lng: 79.513 }, { name: "Almora", lat: 29.5971, lng: 79.6591 }, { name: "Pithoragarh", lat: 29.5829, lng: 80.2182 }],
@@ -398,7 +407,18 @@ const weatherLocations: Record<string, { latitude: number; longitude: number; la
 const weatherCodeLabel = (code: number) => code === 0 ? "Clear sky" : code <= 3 ? "Partly cloudy" : code <= 48 ? "Hazy / foggy" : code <= 57 ? "Drizzle" : code <= 67 ? "Rain" : code <= 77 ? "Snow" : code <= 82 ? "Rain showers" : "Thunderstorm risk";
 
 async function getLiveWeather(destination: string) {
-  const known = weatherLocations[destination] ?? weatherLocations.Rajgir;
+  let known = weatherLocations[destination];
+  if (!known) {
+    const geoUrl = new URL("https://geocoding-api.open-meteo.com/v1/search");
+    geoUrl.search = new URLSearchParams({ name: destination, count: "1", language: "en", format: "json" }).toString();
+    const geoResponse = await fetch(geoUrl, { signal: AbortSignal.timeout(5000) });
+    if (geoResponse.ok) {
+      const geo = await geoResponse.json() as { results?: { latitude: number; longitude: number; name: string }[] };
+      const result = geo.results?.[0];
+      if (result) known = { latitude: result.latitude, longitude: result.longitude, label: result.name };
+    }
+  }
+  if (!known) throw new Error(`Could not locate ${destination}`);
   const url = new URL("https://api.open-meteo.com/v1/forecast");
   url.search = new URLSearchParams({ latitude: String(known.latitude), longitude: String(known.longitude), current: "temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,weather_code,wind_speed_10m,wind_gusts_10m", daily: "weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,sunrise,sunset", timezone: "auto", forecast_days: "3" }).toString();
   const response = await fetch(url, { signal: AbortSignal.timeout(8000) });
@@ -542,6 +562,7 @@ export const appRouter = router({
   trip: router({
     featured: publicProcedure.query(() => featuredTrips),
     hiddenGems: publicProcedure.query(() => hiddenGems.map(gem => ({ ...gem, routeStops: routeData[gem.id] ?? [] }))),
+    latest: publicProcedure.query(() => latestDestinations),
     weatherAlert: publicProcedure.input(weatherInput).query(async ({ input }) => {
       try {
         return await getLiveWeather(input.destination);

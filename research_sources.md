@@ -20,3 +20,9 @@ Important constraint: for long-haul candidates (McLeod Ganj, Puducherry, Gokarna
 Source article: https://www.thrillophilia.com/unexplored-places-in-bihar
 
 Added planner-ready routes for Barabar Caves (₹2,200; village homestay), Dungeshwari & Muchalinda (₹1,900; pilgrim dormitory), Telhar Kund (₹2,800; forest-edge homestay), Kesaria Stupa (₹2,600; Motihari dormitory), Lauriya Nandangarh (₹3,200; Bettiah homestay), and Munger Yoga & Ganga (₹2,400; ashram dormitory). These are conservative planning estimates, not live quotes. The article also lists Sonbhandar Caves, Rizwan Castle, Kumhrar, Dashrath Manjhi Road, and Griddhakuta Peak; Sonbhandar, Kumhrar and Griddhakuta are already represented by the existing Rajgir/Bodh Gaya content, while Rizwan Castle and Dashrath Manjhi Road were not made standalone budget trips because they need better current access and stay verification.
+
+## Latest & interesting destinations research (September 2026)
+
+Added six current-interest destinations using official tourism/government sources and current reporting: Munnar Neelakurinji (2026 Chokramudi–Meesapulimala bloom watch), Meghalaya monsoon routes, Zanskar Valley, Gurez Valley, Odisha coastal heritage, and Chopta–Tungnath. Each record includes why-now context, best season, access guidance, source URLs, and a reminder to verify same-day road, weather, permit, security, park, or festival status. No live prices are claimed.
+
+Primary sources: Kerala Tourism and Eravikulam National Park; Meghalaya Tourism; Ladakh Administration and Press Information Bureau; Bandipore District Administration and JK Tourism; Odisha Tourism, UNESCO and Incredible India; Uttarakhand Tourism and GMVN.
