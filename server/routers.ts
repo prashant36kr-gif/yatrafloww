@@ -3,6 +3,7 @@ import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, router } from "./_core/trpc";
+import { invokeLLM } from "./_core/llm";
 
 const featuredTrips = [
   {
@@ -405,6 +406,7 @@ const weatherLocations: Record<string, { latitude: number; longitude: number; la
 };
 
 const weatherCodeLabel = (code: number) => code === 0 ? "Clear sky" : code <= 3 ? "Partly cloudy" : code <= 48 ? "Hazy / foggy" : code <= 57 ? "Drizzle" : code <= 67 ? "Rain" : code <= 77 ? "Snow" : code <= 82 ? "Rain showers" : "Thunderstorm risk";
+const chatInput = z.object({ messages: z.array(z.object({ role: z.enum(["user", "assistant"]), content: z.string().min(1).max(4000) })).min(1).max(20) });
 
 async function getLiveWeather(destination: string) {
   let known = weatherLocations[destination];
@@ -604,6 +606,18 @@ export const appRouter = router({
         message: trip.total <= input.budgetPerPerson ? "Already within budget — protect the buffer." : optimizer.best.fits ? "One component swap brings this trip back within budget." : "No single swap is enough yet; combine the smallest trade-offs.",
         ...optimizer,
       };
+    }),
+  }),
+  ai: router({
+    chat: publicProcedure.input(chatInput).mutation(async ({ input }) => {
+      const response = await invokeLLM({
+        messages: [
+          { role: "system", content: "You are YatraFlow AI, a practical India travel planning assistant. Give concise, useful advice about destinations, budgets, routes, stays, weather preparation and local travel. Never invent live prices, weather, bookings or availability. If the user asks for live information, tell them to use the relevant YatraFlow live feature. Keep answers friendly and under 180 words." },
+          ...input.messages,
+        ],
+      });
+      const content = response.choices?.[0]?.message?.content;
+      return { content: typeof content === "string" ? content : "I could not generate a response right now. Please try again." };
     }),
   }),
   partner: router({

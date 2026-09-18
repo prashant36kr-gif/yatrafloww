@@ -137,6 +137,7 @@ export default function Home() {
   const [bufferEnabled, setBufferEnabled] = useState(true);
   const discover = trpc.trip.discover.useMutation();
   const optimize = trpc.trip.optimize.useMutation();
+  const chat = trpc.ai.chat.useMutation();
   const partnerLead = trpc.partner.requestInfo.useMutation();
   const featured = trpc.trip.featured.useQuery();
   const hiddenGems = trpc.trip.hiddenGems.useQuery();
@@ -176,12 +177,15 @@ export default function Home() {
   const openPlanner = () => document.getElementById("planner")?.scrollIntoView({ behavior: "smooth", block: "center" });
 
   const handleChat = (content: string) => {
-    const reply = content.toLowerCase().includes("crowd")
-      ? "Try Rajgir early in the morning — the engine can keep the route and budget fixed while swapping timing and activities."
-      : content.toLowerCase().includes("weather")
-        ? "Weather signals are part of the next data layer. For the demo, I can help you choose a slower, indoor-friendly plan."
-        : "Start with a budget, city, duration and interest. I’ll help you refine the plan without inventing prices or breaking hard constraints.";
-    setChatMessages(previous => [...previous, { role: "user", content }, { role: "assistant", content: reply }]);
+    const nextMessages: Message[] = [...chatMessages, { role: "user", content }];
+    setChatMessages(nextMessages);
+    chat.mutate({ messages: nextMessages.filter((message): message is Extract<Message, { role: "user" | "assistant" }> => message.role !== "system") }, {
+      onSuccess: response => setChatMessages(previous => [...previous, { role: "assistant", content: response.content }]),
+      onError: () => {
+        setChatMessages(previous => [...previous, { role: "assistant", content: "I’m having trouble reaching the travel assistant right now. Please try again in a moment." }]);
+        toast.error("YatraFlow AI is temporarily unavailable.");
+      },
+    });
   };
 
   const handleService = (service: (typeof serviceCards)[number]) => {
@@ -304,7 +308,7 @@ export default function Home() {
       <footer id="contact" className="scroll-mt-24 border-t border-[#dce5dc] bg-[#f6f3ec] px-5 py-10 sm:px-8"><div className="mx-auto flex max-w-[1160px] flex-col justify-between gap-6 sm:flex-row sm:items-end"><div><div className="flex items-center gap-2 font-display text-xl font-bold tracking-[-0.04em]"><span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#17352c] text-[#d6f261]"><Compass size={15} /></span> YatraFlow</div><p className="mt-2 text-xs text-[#788d82]">Travel smarter. Discover more.</p><div className="mt-4 flex flex-wrap gap-3 text-xs text-[#64786b]"><a className="hover:text-[#17352c]" href="mailto:hello@yatraflow.in">hello@yatraflow.in</a><span>·</span><button type="button" onClick={() => setPartnerOpen(true)} className="hover:text-[#17352c]">Partner with us</button></div></div><div className="text-left text-[10px] font-bold uppercase tracking-[0.15em] text-[#8a9b91] sm:text-right"><div>Built for thoughtful travellers</div><div className="mt-2">© 2026 YatraFlow · Travel planning, made practical</div></div></div></footer>
 
       <button type="button" aria-label="Open YatraFlow AI assistant" onClick={() => setChatOpen(!chatOpen)} className="fixed bottom-5 right-5 z-40 flex items-center gap-2 rounded-full bg-[#17352c] px-4 py-3 text-[10px] font-bold uppercase tracking-[0.13em] text-[#f6f3ec] shadow-[0_8px_25px_rgba(23,53,44,.22)] transition hover:bg-[#285044]"><MessageCircle size={16} className="text-[#d6f261]" /> Ask YatraFlow AI</button>
-      {chatOpen && <div className="fixed bottom-[76px] right-5 z-50 w-[min(390px,calc(100vw-2rem))] overflow-hidden rounded-[24px] border border-[#c9d8c6] bg-[#f6f3ec] shadow-2xl"><div className="flex items-center justify-between bg-[#17352c] p-4 text-[#f6f3ec]"><div><div className="flex items-center gap-2 text-sm font-semibold"><Sparkles size={15} className="text-[#d6f261]" /> YatraFlow AI</div><p className="mt-1 text-[10px] text-[#b9cbbd]">Intent, explanations and refinements — not invented prices.</p></div><button type="button" onClick={() => setChatOpen(false)} className="rounded-full p-1.5 text-[#b9cbbd] hover:bg-[#2c5143]"><MoreHorizontal size={16} /></button></div><AIChatBox messages={chatMessages} onSendMessage={handleChat} height={380} emptyStateMessage="Ask about your route, budget or preferences." suggestedPrompts={["Find a quieter trip", "Explain why Rajgir fits", "What can ₹1,500 buy?"]} className="rounded-none border-0 shadow-none" /> </div>}
+      {chatOpen && <div className="fixed bottom-[76px] right-5 z-50 w-[min(390px,calc(100vw-2rem))] overflow-hidden rounded-[24px] border border-[#c9d8c6] bg-[#f6f3ec] shadow-2xl"><div className="flex items-center justify-between bg-[#17352c] p-4 text-[#f6f3ec]"><div><div className="flex items-center gap-2 text-sm font-semibold"><Sparkles size={15} className="text-[#d6f261]" /> YatraFlow AI</div><p className="mt-1 text-[10px] text-[#b9cbbd]">Powered by the secure ChatGPT-compatible server gateway.</p></div><button type="button" onClick={() => setChatOpen(false)} className="rounded-full p-1.5 text-[#b9cbbd] hover:bg-[#2c5143]"><MoreHorizontal size={16} /></button></div><AIChatBox messages={chatMessages} onSendMessage={handleChat} isLoading={chat.isPending} height={380} emptyStateMessage="Ask about your route, budget or preferences." suggestedPrompts={["Find a quieter trip", "Explain why Rajgir fits", "What can ₹1,500 buy?"]} className="rounded-none border-0 shadow-none" /> </div>}
 
       {feedbackOpen && <FeedbackModal onSubmit={submitFeedback} onClose={() => setFeedbackOpen(false)} loading={feedback.isPending} />}
       {authOpen && <AuthModal mode={authMode} onModeChange={setAuthMode} onClose={() => setAuthOpen(false)} />}
