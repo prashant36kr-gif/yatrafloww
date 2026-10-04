@@ -584,6 +584,17 @@ const safetyOverview = {
     { step: "05", title: "Notify the group", detail: "The trip lead sees status and location updates." },
   ],
   status: { deviceId: "YF-BAND-1024", battery: 84, network: "LoRa connected", location: "Last location synced 2 min ago", signal: "Strong" },
+  emergencyDashboard: {
+    alert: { status: "SOS active", severity: "High", time: "14:37:08", deviceId: "YF-BAND-1024", message: "Emergency button held for 3 seconds. Location shared with the family circle." },
+    location: { place: "Near Rajgir Hills, Bihar", coordinates: "25.0268° N, 85.4206° E", accuracy: "±18 m", updated: "12 seconds ago" },
+    family: [
+      { name: "Aarav", role: "Trip lead", status: "Connected", initials: "AS" },
+      { name: "Priya", role: "Family contact", status: "Alert sent", initials: "PS" },
+      { name: "Neha", role: "Family contact", status: "Viewing location", initials: "NS" },
+      { name: "Rahul", role: "Trip member", status: "Offline", initials: "RK" },
+    ],
+    actions: ["View live map", "Call trip lead", "Contact local help"],
+  },
 } as const;
 
 export const appRouter = router({
