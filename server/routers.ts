@@ -551,6 +551,41 @@ function buildOptimizerOptions(trip: ReturnType<typeof createTrip>, budgetPerPer
   return { options, best };
 }
 
+const safetyOverview = {
+  qrPoint: {
+    title: "YatraFlow Smart Tourism Point",
+    summary: "Scan once for destination information, local services, suggested itineraries and emergency contacts.",
+    features: [
+      { label: "QR code access", detail: "Open the destination guide instantly from the physical tourism point." },
+      { label: "Destination information", detail: "See attractions, history, culture and local context." },
+      { label: "Local services", detail: "Find food, stays, guides, transport and nearby essentials." },
+      { label: "Suggested itineraries", detail: "Get practical route ideas with estimated cost." },
+      { label: "Emergency contacts", detail: "Reach police, hospitals and local help quickly." },
+      { label: "Works offline", detail: "Keep critical information available in low-network areas." },
+    ],
+  },
+  sosBand: {
+    title: "YatraFlow SOS Band",
+    summary: "A lightweight safety companion for tourists, families and group leaders — designed for low-network journeys.",
+    features: [
+      { label: "One-press SOS", detail: "Hold the SOS button for three seconds to trigger an emergency alert." },
+      { label: "Real-time location", detail: "Share the latest GPS location with trusted contacts and authorities." },
+      { label: "Works offline", detail: "LoRa communication supports alerts when mobile networks are unavailable." },
+      { label: "Group tracking", detail: "Keep a travel group visible to the designated trip lead." },
+      { label: "Fall detection", detail: "Optional movement sensing can flag a possible fall for review." },
+      { label: "Long battery life", detail: "Rechargeable battery designed for multi-day journeys." },
+    ],
+  },
+  workflow: [
+    { step: "01", title: "Press SOS", detail: "Hold the button for three seconds." },
+    { step: "02", title: "Get GPS location", detail: "The band captures the latest coordinates." },
+    { step: "03", title: "Send alert", detail: "LoRa or mobile data carries the emergency signal." },
+    { step: "04", title: "Reach support", detail: "Trusted contacts and authorities receive the alert." },
+    { step: "05", title: "Notify the group", detail: "The trip lead sees status and location updates." },
+  ],
+  status: { deviceId: "YF-BAND-1024", battery: 84, network: "LoRa connected", location: "Last location synced 2 min ago", signal: "Strong" },
+} as const;
+
 export const appRouter = router({
   system: systemRouter,
   auth: router({
@@ -561,6 +596,7 @@ export const appRouter = router({
       return { success: true } as const;
     }),
   }),
+  safety: router({ overview: publicProcedure.query(() => safetyOverview) }),
   trip: router({
     featured: publicProcedure.query(() => featuredTrips),
     hiddenGems: publicProcedure.query(() => hiddenGems.map(gem => ({ ...gem, routeStops: routeData[gem.id] ?? [] }))),

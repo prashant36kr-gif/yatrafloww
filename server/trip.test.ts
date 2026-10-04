@@ -205,3 +205,15 @@ describe("latest destinations", () => {
     }
   }, 15000);
 });
+
+
+describe("safety overview", () => {
+  it("returns the QR and SOS product flows with prototype status", async () => {
+    const caller = appRouter.createCaller(createPublicContext());
+    const overview = await caller.safety.overview();
+    expect(overview.qrPoint.features.length).toBeGreaterThanOrEqual(5);
+    expect(overview.sosBand.features.some(feature => feature.label === "One-press SOS")).toBe(true);
+    expect(overview.workflow).toHaveLength(5);
+    expect(overview.status.battery).toBeGreaterThan(0);
+  });
+});
