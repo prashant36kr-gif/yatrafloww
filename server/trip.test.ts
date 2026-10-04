@@ -215,5 +215,8 @@ describe("safety overview", () => {
     expect(overview.sosBand.features.some(feature => feature.label === "One-press SOS")).toBe(true);
     expect(overview.workflow).toHaveLength(5);
     expect(overview.status.battery).toBeGreaterThan(0);
+    expect(overview.emergencyDashboard.family).toHaveLength(4);
+    expect(overview.emergencyDashboard.family.every(member => typeof member.coordinates.lat === "number" && typeof member.coordinates.lng === "number")).toBe(true);
+    expect(overview.emergencyDashboard.location.coordinates).toContain("°");
   });
 });
